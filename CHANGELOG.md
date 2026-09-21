@@ -9,6 +9,24 @@ et ce projet adhere au [Semantic Versioning](https://semver.org/lang/fr/).
 
 ### Added
 
+- **`scripts/mesurer-vocabulaire.py`, pour mesurer ce que le vocabulaire apporte vraiment** sur un
+  vrai enregistrement, plutôt que de le supposer.
+
+  ⛔ **Le même fichier audio sert aux deux passes.** Comparer deux enregistrements différents ne
+  mesurerait pas le vocabulaire mais la façon de parler du second.
+
+  ⛔ **Il mesure aussi le SUR-BIAIS, et c'est le point le plus important.** Le texte à lire
+  contient deux mots volontairement **absents** du vocabulaire et phonétiquement proches d'un
+  terme présent, `Lévétiracétam` près de `Lévothyrox` et `Valbonne` près de `Villeurbanne`. S'ils
+  se font aspirer vers leur voisin, le mécanisme corrige à tort et il ne faut pas le garder. Une
+  mesure qui ne regarde que le gain passerait entièrement à côté de ce risque, qui est précisément
+  celui qui compte sur des professions tenues au secret.
+
+  ⚠️ **Le texte à lire vit dans le script**, à côté du baromètre qui le note, pour que les deux ne
+  divergent jamais. Ce sont des phrases naturelles et non une liste de mots : on lit une liste
+  autrement qu'on dicte, et c'est la dictée qu'on mesure.
+
+
 - **Un vocabulaire donné au moteur AVANT la transcription** (`vocabulary` dans les réglages, une
   zone de texte à raison d'un terme par ligne). Les termes partent en `--prompt` avec
   `--carry-initial-prompt`, pour que la reconnaissance écrive du premier coup les noms propres et
