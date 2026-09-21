@@ -1,0 +1,42 @@
+/* Fontes EMBARQUEES dans le binaire, jamais chargees depuis un CDN.
+ *
+ * ⚠️ Ce n'est pas une preference : une application de dictee LOCALE doit s'ouvrir identique sans
+ * reseau, et aller chercher une fonte en ligne contredirait la promesse meme du produit. Le CDN
+ * du parc sert les sites web, pas celui-ci. Les fichiers viennent de painteau/cdn, donc ce sont
+ * les memes dessins que le site et l'app iOS.
+ *
+ * `font-display: block` et non `swap` : la fenetre est petite et convoquee pour quelques
+ * secondes, un echange de fonte en cours de lecture y serait plus genant qu'un chargement local
+ * qui dure quelques millisecondes. */
+
+@font-face {
+  font-family: 'Fraunces';
+  src: url('./fontes/Fraunces-Variable.woff2') format('woff2-variations');
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: block;
+}
+
+@font-face {
+  font-family: 'IBM Plex Sans';
+  src: url('./fontes/IBMPlexSans-Variable.woff2') format('woff2-variations');
+  font-weight: 100 700;
+  font-style: normal;
+  font-display: block;
+}
+
+@font-face {
+  font-family: 'IBM Plex Mono';
+  src: url('./fontes/IBMPlexMono-Regular.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: block;
+}
+
+@font-face {
+  font-family: 'IBM Plex Mono';
+  src: url('./fontes/IBMPlexMono-Medium.woff2') format('woff2');
+  font-weight: 500;
+  font-style: normal;
+  font-display: block;
+}

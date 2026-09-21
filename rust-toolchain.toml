@@ -1,0 +1,5 @@
+# Chaine epinglee : la CI et les postes compilent avec la meme, sinon un avertissement
+# clippy peut etre rouge chez l'un et vert chez l'autre.
+[toolchain]
+channel = "stable"
+components = ["rustfmt", "clippy"]

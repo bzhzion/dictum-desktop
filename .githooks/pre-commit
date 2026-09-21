@@ -1,0 +1,92 @@
+#!/bin/sh
+# Rappel : une modification de code s'accompagne d'une entree dans CHANGELOG.md, sous
+# la section "## [Unreleased]" - renommee en numero de version au moment du tag.
+#
+# Volontairement souple : un commit qui ne touche que la CI, la doc ou les hooks passe
+# sans rien reclamer. Trop de blocages produisent des entrees vides ecrites juste pour
+# passer le hook, ce qui vide le changelog de son interet.
+#
+# Ce hook n'est qu'un pense-bete : `git commit --no-verify` le saute, et il n'existe pas
+# dans un clone qui n'a pas configure core.hooksPath. La vraie garantie est en CI, au
+# moment du tag (.github/workflows/changelog-guard.yml), la ou on ne peut pas la contourner.
+#
+# Second controle dans ce meme fichier (nom historique, garde le prefixe "changelog" pour
+# ne pas casser les references existantes) : fichiers .yml/.yaml stages.
+# Ajoute suite a deux commits reels de workflows GitHub Actions casses par une edition
+# automatisee : une sequence backslash-n litterale (PAS un vrai retour a la ligne) ecrite
+# dans un bloc `run: |` a la place d'un saut de ligne de continuation shell. Verifie a la
+# main : ce cas est **du YAML syntaxiquement valide** (un bloc litteral accepte n'importe
+# quel texte), donc un simple `yaml.safe_load` ne le detecte jamais - seul le shell embarque
+# se retrouve casse, silencieusement, le jour ou le job tourne. Les deux controles ci-dessous
+# sont donc complementaires, pas redondants. Best-effort : si python3 est absent, le controle
+# de validite YAML strict est saute silencieusement plutot que de bloquer un commit sans rapport.
+#
+# Piege vecu en ecrivant ce controle : un grep naif sur la sequence backslash-n remonte des
+# faux positifs reels (ex. `+ '\n');` en JS, `tr -d ' \n'` en shell - des echappements
+# legitimes a l'interieur d'une chaine, trouves sur `cabanon`). Le controle ci-dessous ne
+# signale que les occurrences PAS suivies d'un guillemet fermant, ce qui les distingue de la
+# vraie continuation cassee.
+
+STAGED=$(git diff --cached --name-only)
+[ -z "$STAGED" ] && exit 0
+
+YAML_FILES=$(echo "$STAGED" | grep -E '\.(yml|yaml)$' || true)
+if [ -n "$YAML_FILES" ]; then
+  YAML_FAIL=0
+
+  # 1. Sequence backslash-n litterale suspecte (pas suivie d'un guillemet fermant).
+  for f in $YAML_FILES; do
+    [ -f "$f" ] || continue
+    # .github/workflows/yaml-lint.yml exclu : son implementation a legitimement besoin
+    # d'ecrire le motif qu'il recherche (meme raison que l'exclusion cote CI).
+    [ "$f" = ".github/workflows/yaml-lint.yml" ] && continue
+    SUSPECT=$(grep -nE "\\\\n[^'\"]|\\\\n\$" "$f" | grep -vE '^[0-9]+:[[:space:]]*#' || true)
+    if [ -n "$SUSPECT" ]; then
+      echo ""
+      echo "  Sequence backslash-n litterale suspecte dans : $f"
+      echo "$SUSPECT" | sed 's/^/      /'
+      echo "  Si c'est un vrai saut de ligne voulu (ex: continuation shell), remplace-le"
+      echo "  par un veritable retour a la ligne dans l'editeur."
+      YAML_FAIL=1
+    fi
+  done
+
+  # 2. Validite YAML au sens strict (structure/indentation), best-effort.
+  if command -v python3 >/dev/null 2>&1 && python3 -c "import yaml" >/dev/null 2>&1; then
+    for f in $YAML_FILES; do
+      [ -f "$f" ] || continue
+      ERR=$(python3 -c "import sys, yaml; yaml.safe_load(open(sys.argv[1], encoding='utf-8'))" "$f" 2>&1) || {
+        echo ""
+        echo "  YAML invalide : $f"
+        echo "$ERR" | sed 's/^/      /'
+        YAML_FAIL=1
+      }
+    done
+  fi
+
+  if [ "$YAML_FAIL" = "1" ]; then
+    echo ""
+    echo "  (commit de depannage, en connaissance de cause : git commit --no-verify)"
+    echo ""
+    exit 1
+  fi
+fi
+
+# Changelog deja stage : rien a signaler.
+echo "$STAGED" | grep -q "^CHANGELOG\.md$" && exit 0
+
+# Ne reste-t-il que des fichiers hors code applicatif ?
+CODE=$(echo "$STAGED" | grep -vE '^(\.github/|\.githooks/|docs/|[^/]*\.md$|\.gitignore$|LICENSE$)')
+[ -z "$CODE" ] && exit 0
+
+echo ""
+echo "  CHANGELOG.md n'est pas dans les fichiers stages."
+echo "  Ajoute une ligne sous \"## [Unreleased]\" decrivant ce changement, puis :"
+echo "      git add CHANGELOG.md"
+echo ""
+echo "  Fichiers de code concernes :"
+echo "$CODE" | sed 's/^/      /'
+echo ""
+echo "  (commit de depannage, en connaissance de cause : git commit --no-verify)"
+echo ""
+exit 1

@@ -1,0 +1,872 @@
+/* Socle visuel : face avant d'appareil. Voir docs/direction-visuelle.md pour le parti pris.
+ *
+ * ⚠️ Les fontes sont EMBARQUEES (voir src/styles/fontes.css), jamais chargees depuis un CDN :
+ * une application de dictee locale doit s'ouvrir identique sans reseau. */
+
+@import './fontes.css';
+
+:root {
+  /* Palette imposee, reprise de l'app iOS et du site, jamais retouchee ici. */
+  --bg: #0e0e16;
+  --surface: #1a1a28;
+  --surface-haute: #22222f;
+  --bordure: #2d2d3d;
+  --accent: #4682b4;
+  /* ⚠️ `--accent` sous du texte clair ne mesure que 3,61:1, donc il est reserve aux traits,
+   * temoins et icones (seuil des elements non textuels). Le fond des boutons pleins portant du
+   * texte est `--accent-texte`, mesure 5,04:1. */
+  --accent-texte: #3a6a93;
+  --preparation: #7a5218;
+  --texte: #f2f0ec;
+  --texte-doux: #8f8ea0;
+  --danger: #c0503f;
+
+  --pas: 8px;
+  --rayon: 10px;
+
+  --titre: 'Fraunces', Georgia, serif;
+  --corps: 'IBM Plex Sans', system-ui, sans-serif;
+  --mono: 'IBM Plex Mono', ui-monospace, monospace;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+/* ⛔ Obligatoire, et le defaut qu'elle corrige est muet. L'attribut `hidden` ne masque que par une
+ * regle `display: none` de la feuille du navigateur, qui a la specificite la plus faible : la
+ * moindre regle `display` posee ensuite (ici `.reglage { display: grid }`) la bat, et l'element
+ * reste VISIBLE alors que l'attribut est bien present. Constate le 2026-09-17 sur le repli des
+ * reglages avances, ou la case decochee ne repliait rien. */
+[hidden] {
+  display: none !important;
+}
+
+html,
+body {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  display: flex;
+  flex-direction: column;
+  background: var(--bg);
+  color: var(--texte);
+  font-family: var(--corps);
+  font-size: 14px;
+  line-height: 1.55;
+  overflow: hidden;
+
+  /* Le fond n'est pas plat : un degrade tres faible, plus un grain.
+   * ⚠️ Le grain n'est pas decoratif. Un degrade sombre BANDE visiblement sur la plupart des
+   * ecrans, et le bruit est ce qui casse les bandes. Il donne au passage la matiere de metal
+   * peint que le parti pris demande. */
+  background-image:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3'/%3E%3C/filter%3E%3Crect width='120' height='120' filter='url(%23g)' opacity='0.035'/%3E%3C/svg%3E"),
+    linear-gradient(180deg, #14141f 0%, var(--bg) 42%);
+}
+
+/* Focus visible partout : supprimer la barre de titre supprime aussi ce qu'elle offrait
+ * gratuitement, dont la navigation au clavier. */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* ── Bandeau, qui fait aussi office de barre de titre ────────────────────────────── */
+
+.bandeau {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--pas);
+  padding: 0 calc(var(--pas) * 1.5);
+  height: 44px;
+  flex: 0 0 auto;
+  border-bottom: 1px solid var(--bordure);
+  background: linear-gradient(180deg, var(--surface-haute), var(--surface));
+}
+
+[data-glisser] {
+  -webkit-app-region: drag;
+  user-select: none;
+}
+
+/* ⚠️ Obligatoire sur tout element interactif pose dans la zone de glissement, qui avale
+ * autrement ses clics sans le moindre message.
+ *
+ * ⛔ Poser `no-drag` sur le CONTENEUR ne suffit pas : la propriete ne se transmet pas aux
+ * enfants, donc les boutons restaient dans la zone de glissement et ne repondaient pas. Verifie
+ * le 2026-09-17 : le clic tombait bien dans le bouton (mesure a l'ecran), et il ne se passait
+ * rien. C'est precisement le piege que le commentaire ci-dessus decrivait, et je l'ai laisse
+ * passer quand meme. Les elements interactifs le portent donc eux-memes. */
+[data-non-glisser],
+[data-non-glisser] button,
+.commande {
+  -webkit-app-region: no-drag;
+}
+
+.marque {
+  display: flex;
+  align-items: center;
+  gap: calc(var(--pas) * 1.25);
+  min-width: 0;
+}
+
+.nom {
+  font-family: var(--titre);
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
+.etat {
+  font-family: var(--mono);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--texte-doux);
+}
+
+/* ── Le temoin : anneau et disque, separes par un vide, comme le logo ────────────── */
+
+.temoin {
+  position: relative;
+  width: 18px;
+  height: 18px;
+  flex: 0 0 auto;
+  border: 2px solid var(--bordure);
+  border-radius: 50%;
+}
+
+.temoin::after {
+  content: '';
+  position: absolute;
+  inset: 4px;
+  border-radius: 50%;
+  background: var(--bordure);
+}
+
+.temoin[data-etat='ecoute'],
+.temoin[data-etat='ecoute']::after {
+  border-color: var(--accent);
+  background: var(--accent);
+}
+
+.temoin[data-etat='enregistrement'],
+.temoin[data-etat='enregistrement']::after {
+  border-color: var(--danger);
+  background: var(--danger);
+}
+
+.temoin[data-etat='transcription'],
+.temoin[data-etat='transcription']::after {
+  border-color: var(--preparation);
+  background: var(--preparation);
+}
+
+/* ── Commandes de fenetre ─────────────────────────────────────────────────────────── */
+
+.commandes {
+  display: flex;
+  gap: 2px;
+}
+
+.commande {
+  display: grid;
+  place-items: center;
+  /* ⚠️ 32 px dessines pour une cible de pointeur d'au moins 24 px (WCAG 2.2, critere 2.5.8). */
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--texte-doux);
+  cursor: default;
+  transition: background-color 120ms ease-out, color 120ms ease-out;
+}
+
+.commande svg {
+  width: 12px;
+  height: 12px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.4;
+  stroke-linecap: round;
+}
+
+.commande:hover {
+  background: var(--surface-haute);
+  color: var(--texte);
+}
+
+.commande-fermer:hover {
+  background: var(--danger);
+  color: var(--texte);
+}
+
+/* ── Panneau ──────────────────────────────────────────────────────────────────────── */
+
+.panneau {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  padding: calc(var(--pas) * 2.5);
+}
+
+/* ── Barre de defilement ──────────────────────────────────────────────────────────── */
+
+/* ⚠️ On utilise les pseudo-elements `::-webkit-scrollbar` et **pas** les proprietes standard
+ * `scrollbar-width` / `scrollbar-color` : sur Chromium, poser l'une des deux standard fait
+ * IGNORER les pseudo-elements. Melanger les deux approches donne donc la barre par defaut, sans
+ * aucun message. WebView2 etant Chromium, ce chemin-la est celui qui sert reellement. */
+.panneau::-webkit-scrollbar {
+  width: 12px;
+}
+
+.panneau::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.panneau::-webkit-scrollbar-thumb {
+  /* ⚠️ `--accent` et pas `--accent-texte` : c'est un element non textuel, dont le seuil WCAG est
+   * de 3:1 et non 4,5:1. Mesure sur le fond de la fenetre : 3,61:1, donc conforme. */
+  background: var(--accent);
+  /* La bordure de la couleur du fond fait un liseré qui amincit le curseur sans le rendre
+   * difficile a attraper : la ZONE cliquable reste de 12 px. */
+  border: 3px solid var(--bg);
+  border-radius: 999px;
+}
+
+.panneau::-webkit-scrollbar-thumb:hover {
+  background: #5b9bd1;
+}
+
+/* ── Bascule des reglages avances ─────────────────────────────────────────────────── */
+
+/* En-tete de section : le titre a gauche, la bascule a droite, sur la meme ligne de base. */
+.entete-section {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--pas);
+  margin-bottom: calc(var(--pas) * 2);
+}
+
+.entete-section .section {
+  margin: 0;
+}
+
+.bascule-avances {
+  display: flex;
+  align-items: center;
+  gap: calc(var(--pas) * 0.75);
+}
+
+/* La bascule des avances utilise le meme interrupteur que les reglages : deux affordances
+ * differentes pour le meme geste feraient hesiter sur ce qui est un reglage et ce qui n'en est
+ * pas un. C'est l'ETIQUETTE qui la distingue, pas sa forme. */
+.bascule-avances label {
+  display: flex;
+  align-items: center;
+  min-height: 24px;
+  color: var(--texte-doux);
+  font-family: var(--mono);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  cursor: default;
+}
+
+/* La note n'est pas une erreur : elle signale que quelque chose de modifie est replie. Elle est
+ * donc ambre (etat « a savoir »), jamais rouge. */
+.note {
+  margin: 0 0 calc(var(--pas) * 2);
+  padding: calc(var(--pas) * 0.75) var(--pas);
+  border-left: 2px solid var(--preparation);
+  border-radius: 0 4px 4px 0;
+  background: var(--surface);
+  color: var(--texte);
+  font-size: 13px;
+}
+
+.module + .module {
+  margin-top: calc(var(--pas) * 3);
+  padding-top: calc(var(--pas) * 3);
+  border-top: 1px solid var(--bordure);
+}
+
+/* Libelle de section grave : c'est lui qui fait la face avant. */
+.section {
+  margin: 0 0 calc(var(--pas) * 1.5);
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  color: var(--texte-doux);
+}
+
+.corps {
+  margin: 0 0 calc(var(--pas) * 2);
+  max-width: 52ch;
+  color: var(--texte);
+}
+
+.mesures {
+  display: grid;
+  gap: var(--pas);
+  margin: 0;
+}
+
+.mesures > div {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--pas);
+  padding-bottom: var(--pas);
+  border-bottom: 1px solid var(--bordure);
+}
+
+.mesures dt {
+  color: var(--texte-doux);
+}
+
+.mesures dd {
+  margin: 0;
+  font-family: var(--mono);
+  font-size: 13px;
+  color: var(--texte);
+}
+
+/* ── Reglages ─────────────────────────────────────────────────────────────────────── */
+
+/* Un `fieldset` porte des styles par defaut lourds (bordure, marges) qu'on remplace par un simple
+ * groupement espace : la legende suffit a marquer le groupe. */
+.groupe {
+  margin: 0 0 calc(var(--pas) * 3);
+  padding: 0;
+  border: 0;
+  display: grid;
+  gap: calc(var(--pas) * 2);
+}
+
+.groupe > legend {
+  /* `float: left` plus une largeur pleine : sans ca la legende d'un `fieldset` en `grid` sort de
+   * la grille et se pose de travers, defaut connu et sans message. */
+  float: left;
+  width: 100%;
+  padding: 0;
+  margin: 0 0 calc(var(--pas) * 0.5);
+}
+
+.reglage {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: calc(var(--pas) * 1.5);
+  align-items: start;
+}
+
+/* Les champs a valeur mettent le libelle a gauche et le controle a droite, aligne sur une colonne
+ * commune : l'oeil descend une seule colonne de champs au lieu de zigzaguer. */
+.reglage-valeur {
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: var(--pas);
+}
+
+/* Deux colonnes fixes : le controle, puis l'unite. La seconde existe meme quand elle est vide,
+ * sinon les champs sans unite s'etendent plus a droite et la colonne de saisie part en escalier. */
+.reglage-controle {
+  display: grid;
+  grid-template-columns: auto 3ch;
+  align-items: center;
+  gap: calc(var(--pas) * 0.75);
+}
+
+.reglage-unite {
+  color: var(--texte-doux);
+  font-family: var(--mono);
+  font-size: 12px;
+}
+
+.reglage input[type='number'],
+.reglage input[type='text'],
+.reglage select {
+  /* ⚠️ 32 px de haut : au-dela des 24 px de cible de pointeur exiges par WCAG 2.2 (2.5.8). */
+  height: 32px;
+  padding: 0 calc(var(--pas) * 0.75);
+  border: 1px solid var(--bordure);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--texte);
+  font-family: var(--mono);
+  font-size: 13px;
+}
+
+.reglage input[type='number'] {
+  width: 8ch;
+  text-align: right;
+}
+
+.reglage input[type='text'] {
+  width: 18ch;
+}
+
+.reglage select {
+  min-width: 14ch;
+}
+
+.reglage input:focus-visible,
+.reglage select:focus-visible {
+  border-color: var(--accent);
+}
+
+/* ⚠️ Le survol ne suffit pas a designer un champ : il ne se voit ni au clavier ni au doigt. Il
+ * n'est donc qu'un renfort, l'etiquette liee restant ce qui porte l'information. */
+.reglage input:hover,
+.reglage select:hover {
+  border-color: var(--texte-doux);
+}
+
+.sous-section {
+  margin: calc(var(--pas) * 2) 0 var(--pas);
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  color: var(--texte-doux);
+}
+
+/* ── Choix a options (boutons radio) ────────────────────────────────────────────────── */
+
+.choix {
+  display: grid;
+  gap: var(--pas);
+  margin: 0 0 calc(var(--pas) * 1.5);
+  padding: 0;
+  border: 0;
+}
+
+.choix-option {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: calc(var(--pas) * 1.5);
+  align-items: start;
+  padding: calc(var(--pas) * 1.5);
+  border: 1px solid var(--bordure);
+  border-radius: var(--rayon);
+  background: var(--surface);
+}
+
+/* L'option cochee se distingue par son TRAIT, pas seulement par sa couleur (WCAG 1.4.1). */
+.choix-option:has(input:checked) {
+  border-color: var(--accent);
+  border-width: 2px;
+  padding: calc(var(--pas) * 1.5 - 1px);
+}
+
+.choix-option:has(input:disabled) {
+  opacity: 0.6;
+}
+
+.choix-option input[type='radio'] {
+  /* ⚠️ 20 px dessines dans une etiquette cliquable de toute la carte : la cible depasse
+   * largement les 24 px du critere 2.5.8. */
+  width: 20px;
+  height: 20px;
+  margin: 2px 0 0;
+  accent-color: var(--accent-texte);
+  cursor: default;
+}
+
+.choix-option label {
+  display: grid;
+  gap: 4px;
+  cursor: default;
+}
+
+.choix-entete {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--pas);
+}
+
+/* ── Modeles ──────────────────────────────────────────────────────────────────────── */
+
+.modele {
+  display: grid;
+  gap: var(--pas);
+  padding: calc(var(--pas) * 1.5);
+  margin-bottom: calc(var(--pas) * 1.5);
+  border: 1px solid var(--bordure);
+  border-radius: var(--rayon);
+  background: var(--surface);
+}
+
+.modele-entete {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--pas);
+}
+
+.modele-nom {
+  font-family: var(--titre);
+  font-size: 15px;
+  font-weight: 600;
+}
+
+/* ⚠️ L'etat est ECRIT, la couleur n'est qu'un renfort : « present » et « verifie » ne sont pas
+ * la meme chose, et les distinguer par la seule teinte tomberait sous WCAG 1.4.1. */
+.modele-etat {
+  font-family: var(--mono);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--texte-doux);
+  text-align: right;
+}
+
+.modele-etat[data-etat='verifie'] {
+  color: #6aa9de;
+}
+
+.modele-etat[data-etat='partiel'] {
+  color: #d9a34a;
+}
+
+.modele-description {
+  margin: 0;
+  max-width: 52ch;
+  color: var(--texte-doux);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+/* Element natif : la progression est annoncee et comprise sans rien reconstruire. */
+.progression {
+  width: 100%;
+  height: 6px;
+  appearance: none;
+  border: 0;
+  border-radius: 999px;
+  background: var(--surface-haute);
+  overflow: hidden;
+}
+
+.progression::-webkit-progress-bar {
+  background: var(--surface-haute);
+  border-radius: 999px;
+}
+
+.progression::-webkit-progress-value {
+  background: var(--accent);
+  border-radius: 999px;
+  transition: width 120ms linear;
+}
+
+.modele-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--pas);
+}
+
+.action {
+  /* ⚠️ 32 px de haut : au-dela des 24 px de cible de pointeur exiges par WCAG 2.2 (2.5.8). */
+  min-height: 32px;
+  padding: 0 calc(var(--pas) * 1.5);
+  border: 1px solid var(--bordure);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--texte);
+  font-family: var(--corps);
+  font-size: 13px;
+  cursor: default;
+  transition:
+    background-color 120ms ease-out,
+    border-color 120ms ease-out;
+}
+
+.action:hover {
+  background: var(--surface-haute);
+  border-color: var(--texte-doux);
+}
+
+.action-principale {
+  /* `--accent-texte` et pas `--accent` : ce fond porte du TEXTE, donc le seuil est 4,5:1, mesure
+   * a 5,04:1. `--accent` n'y serait qu'a 3,61:1. */
+  background: var(--accent-texte);
+  border-color: var(--accent-texte);
+}
+
+.action-principale:hover {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .action,
+  .progression::-webkit-progress-value {
+    transition: none;
+  }
+}
+
+/* ── Pied : mesures, chemin, copyright ────────────────────────────────────────────── */
+
+.pied {
+  margin-top: calc(var(--pas) * 4);
+  padding-top: calc(var(--pas) * 3);
+  border-top: 1px solid var(--bordure);
+}
+
+.copyright {
+  margin: calc(var(--pas) * 3) 0 0;
+  text-align: center;
+  color: var(--texte-doux);
+  font-size: 12px;
+}
+
+.chemin {
+  display: grid;
+  gap: 2px;
+  margin: calc(var(--pas) * 2) 0 0;
+}
+
+.chemin-libelle {
+  font-family: var(--mono);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  color: var(--texte-doux);
+}
+
+.chemin code {
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--texte);
+  /* Un chemin long doit se couper plutot qu'elargir la fenetre. */
+  overflow-wrap: anywhere;
+}
+
+/* ⚠️ 20 px dessines plus 2 px de contour, dans une etiquette cliquable qui porte la hauteur du
+ * bloc : la cible de pointeur depasse largement les 24 px du critere WCAG 2.2 (2.5.8), sans
+ * dessiner un enorme carre. */
+/* ── Interrupteur ─────────────────────────────────────────────────────────────────── */
+
+/* ⚠️ C'est une VRAIE case a cocher, seulement redessinee. Un faux interrupteur en `div` avec
+ * `role="switch"` obligerait a reconstruire a la main le clavier, l'etat annonce, la liaison a
+ * l'etiquette et le focus, et chacun de ces quatre points est une occasion de se tromper en
+ * silence.
+ *
+ * ⚠️ **L'etat est porte par la POSITION du curseur, pas seulement par la couleur** : le pastillon
+ * est a gauche ou a droite. WCAG 1.4.1 interdit de faire porter une information a la seule
+ * couleur, et c'est precisement ce qu'un interrupteur qui ne ferait que changer de teinte
+ * ferait. */
+input[type='checkbox'].interrupteur {
+  appearance: none;
+  -webkit-appearance: none;
+  position: relative;
+  flex: 0 0 auto;
+  /* 24 px de haut : la cible de pointeur satisfait le critere WCAG 2.2 (2.5.8) a elle seule,
+   * sans compter l'etiquette qui lui est liee et qui est cliquable aussi. */
+  width: 40px;
+  height: 24px;
+  margin: 0;
+  padding: 0;
+  border: 1px solid var(--bordure);
+  border-radius: 999px;
+  background: var(--surface-haute);
+  cursor: default;
+  transition:
+    background-color 140ms ease-out,
+    border-color 140ms ease-out;
+}
+
+input[type='checkbox'].interrupteur::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 2px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  /* Mesure : #8f8ea0 sur le fond #22222f du rail donne 3,9:1, au-dela des 3:1 exiges pour un
+   * element non textuel. */
+  background: var(--texte-doux);
+  transform: translateY(-50%);
+  transition:
+    transform 140ms ease-out,
+    background-color 140ms ease-out;
+}
+
+input[type='checkbox'].interrupteur:checked {
+  background: var(--accent-texte);
+  border-color: var(--accent-texte);
+}
+
+input[type='checkbox'].interrupteur:checked::after {
+  transform: translate(16px, -50%);
+  background: var(--texte);
+}
+
+input[type='checkbox'].interrupteur:hover:not(:disabled) {
+  border-color: var(--texte-doux);
+}
+
+input[type='checkbox'].interrupteur:disabled {
+  /* ⚠️ Pas seulement plus pale : l'etat est lu au demarrage, donc l'interrupteur est brievement
+   * inactif. Il doit alors se lire comme « pas encore connu » et pas comme « eteint ». */
+  opacity: 0.45;
+}
+
+/* La consigne du parc : toute animation se coupe pour qui l'a demande a son systeme. */
+@media (prefers-reduced-motion: reduce) {
+  input[type='checkbox'].interrupteur,
+  input[type='checkbox'].interrupteur::after {
+    transition: none;
+  }
+}
+
+.reglage label {
+  display: grid;
+  gap: 2px;
+  cursor: default;
+}
+
+.reglage-titre {
+  color: var(--texte);
+}
+
+.reglage-aide {
+  /* Mesure : #8f8ea0 sur #0e0e16 donne 6,4:1, au-dela des 4,5:1 exiges pour du texte normal. */
+  color: var(--texte-doux);
+  font-size: 13px;
+  line-height: 1.45;
+  max-width: 46ch;
+}
+
+/* Le message n'occupe aucune place tant qu'il est vide : une zone reservee en permanence ferait
+ * un trou inexplique dans la mise en page. */
+.message:empty {
+  display: none;
+}
+
+.message {
+  margin: calc(var(--pas) * 1.5) 0 0;
+  padding: calc(var(--pas) * 0.75) var(--pas);
+  /* ⚠️ Par defaut le message est une CONFIRMATION, pas une alerte : teinter tout en rouge ferait
+   * lire « Réglages enregistrés » comme un probleme. Le rouge est reserve a `.message-erreur`,
+   * et le texte porte l'information dans les deux cas (WCAG 1.4.1). */
+  border-left: 2px solid var(--accent);
+  border-radius: 0 4px 4px 0;
+  background: var(--surface);
+  color: var(--texte);
+  font-size: 13px;
+}
+
+.message-erreur {
+  border-left-color: var(--danger);
+}
+
+/* ── Eveil de la fenetre ──────────────────────────────────────────────────────────── */
+
+/* La fenetre est CONVOQUEE depuis la zone de notification, elle doit donner l'impression de
+ * s'eveiller. Une seule orchestration, rien d'autre ne bouge. */
+@media (prefers-reduced-motion: no-preference) {
+  .bandeau,
+  .module {
+    animation: eveil 180ms ease-out both;
+  }
+
+  .module {
+    animation-delay: 40ms;
+  }
+
+  @keyframes eveil {
+    from {
+      opacity: 0;
+      transform: translateY(-4px);
+    }
+  }
+}
+
+/* Une mesure qui contredit ce que le choix promet : ambre, et le TEXTE porte l'information. */
+.mesure-alerte {
+  color: #d9a34a;
+}
+
+/* ── Substitutions et historique ───────────────────────────────────────────────────────────────
+ *
+ * Deux listes, pas deux valeurs : elles n'entrent pas dans la grille des autres reglages. Elles
+ * reutilisent `.action` et `.groupe`, deja definis plus haut, et n'ajoutent que leur disposition.
+ */
+
+/* Une regle sur une ligne, l'espace disponible partage entre les deux champs de texte. */
+.substitution {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr auto auto auto;
+  gap: 0.5rem;
+  align-items: center;
+  margin-bottom: 0.5rem;
+}
+
+.substitution-fleche {
+  color: var(--texte-discret, #8f8ea0);
+}
+
+/* ⚠️ Sous 420 px les six colonnes deviennent illisibles : la regle passe en deux lignes plutot
+ * que de comprimer les champs jusqu'a ne plus rien pouvoir lire dedans. */
+@media (max-width: 420px) {
+  .substitution {
+    grid-template-columns: 1fr auto auto;
+  }
+  .substitution-fleche {
+    display: none;
+  }
+}
+
+.historique {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.historique li {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 0.5rem;
+  align-items: baseline;
+}
+
+.historique time {
+  color: var(--texte-discret, #8f8ea0);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* ⚠️ `overflow-wrap` et pas `nowrap` : une dictee peut faire plusieurs phrases, et la tronquer
+ * empecherait de reconnaitre celle qu'on cherche. */
+.historique-texte {
+  overflow-wrap: anywhere;
+}
+
+/* Action destructive : le rouge du socle, et le TEXTE dit deja « Effacer ». */
+.action-danger {
+  border-color: #c0503f;
+  color: #c0503f;
+}
+
+.action-danger:hover {
+  background: #c0503f;
+  color: #f2f0ec;
+}

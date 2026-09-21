@@ -1,0 +1,56 @@
+# Maintainer: Breizhzion <contact@breizhzion.com>
+#
+# Gabarit de reference. La version concrete publiee sur pacman.breizhzion.com est generee a la
+# volee par scripts/preparer-pkgbuild.py, qui remplace la seule ligne `_pkgver=` a chaque tag. Ce
+# fichier-ci n'est jamais construit tel quel : il sert de gabarit, et de base a une soumission AUR
+# le jour ou les inscriptions y rouvriront.
+#
+# ⚠️ **Les URL de `source` ne sont JAMAIS telechargees par la CI.** Elle pose le binaire et
+# l'icone dans le repertoire de construction sous leur nom exact, et `makepkg` les utilise tels
+# quels, d'ou les `sha256sums` a `SKIP`.
+#
+# ⚠️ Ce raisonnement a change le 2026-09-21. Il tenait a ce que le depot etait PRIVE, donc
+# qu'aucun `makepkg` ne pouvait s'authentifier pour telecharger l'artefact ; le depot est public
+# depuis, donc les URL seraient joignables. On continue pourtant a poser les fichiers, pour une
+# autre raison : la CI construit le paquet AVANT que la release GitHub existe, donc l'URL qu'un
+# telechargement viserait ne repond pas encore au moment ou `makepkg` tourne.
+pkgname=dictum-bin
+_pkgver=0.0.0
+pkgver=${_pkgver//-/_}
+pkgrel=1
+pkgdesc="Dictée vocale locale : aucun enregistrement ne quitte l'ordinateur"
+arch=('x86_64')
+url="https://breizhzion.com"
+license=('custom')
+provides=('dictum')
+conflicts=('dictum')
+# ⚠️ Traduit des dependances que Tauri declare dans le .deb, et **verifie dans l'archive
+# officielle Arch** le 2026-09-21 plutot que devine :
+#   libwebkit2gtk-4.1-0 -> webkit2gtk-4.1 · libgtk-3-0 -> gtk3
+#   libayatana-appindicator3-1 -> libayatana-appindicator · libasound2 -> alsa-lib
+#
+# ⛔ `alsa-lib` n'est pas facultatif : le binaire y est lie par la capture microphone, et Tauri
+# l'avait omis du .deb jusqu'au 2026-09-20. Sans elle, l'installation reussit et l'application
+# refuse de demarrer en nommant un fichier `.so`, loin de sa cause.
+depends=('webkit2gtk-4.1' 'gtk3' 'libayatana-appindicator' 'alsa-lib')
+options=('!strip' '!debug')
+source=("dictum::https://github.com/bzhzion/dictum-desktop/releases/download/v${_pkgver}/dictum-linux-x64"
+        "dictum.png::https://raw.githubusercontent.com/bzhzion/dictum-desktop/v${_pkgver}/src-tauri/icons/128x128%402x.png")
+sha256sums=('SKIP'
+            'SKIP')
+
+package() {
+  install -Dm755 "${srcdir}/dictum" "${pkgdir}/usr/bin/dictum"
+  install -Dm644 "${srcdir}/dictum.png" "${pkgdir}/usr/share/icons/hicolor/256x256/apps/dictum.png"
+
+  install -d "${pkgdir}/usr/share/applications"
+  cat > "${pkgdir}/usr/share/applications/dictum.desktop" <<DESKTOP
+[Desktop Entry]
+Name=Dictum
+Comment=Dictée vocale locale
+Exec=/usr/bin/dictum
+Icon=dictum
+Type=Application
+Categories=Utility;Accessibility;
+DESKTOP
+}

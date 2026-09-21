@@ -1,0 +1,33 @@
+# Rust
+/src-tauri/target
+# Schemas de permissions regeneres a chaque compilation par tauri-build
+/src-tauri/gen/schemas
+**/*.rs.bk
+*.pdb
+
+# Frontend
+/node_modules
+/dist
+*.local
+
+# Configuration et modeles locaux, jamais versionnes
+/.dictum-local/
+*.bin
+
+# Secrets
+.env
+.env.*
+!.env.example
+
+# Captures de verification : elles montrent tout l'ecran, jamais versionnees
+capture-*.png
+
+# Moteur de transcription embarque, produit par scripts/preparer-moteur-embarque.py.
+# Des binaires d'un tiers versionnes ici se perimeraient en silence et brouilleraient les
+# differences ; le script fait autorite, et son empreinte attendue est le garde-fou.
+src-tauri/moteur/
+.scratch/
+
+# Runtime Visual C++ embarque par l'installateur, rassemble par
+# scripts/preparer-runtime-vcpp.py. Binaires Microsoft, pas a nous de les versionner.
+src-tauri/runtime/

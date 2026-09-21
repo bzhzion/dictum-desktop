@@ -1,0 +1,569 @@
+# Publication sur tag, conformement a la convention du parc : rien ne se publie sur un push de
+# branche, un tag vX.Y.Z ou un declenchement manuel seulement.
+#
+# ⚠️ Runners GitHub : ce depot est PUBLIC, donc ils y sont gratuits. C'est la convention du parc
+# (voir docs/github-runners.md du depot admin) et l'inverse de ce que ce fichier a fait jusqu'au
+# 2026-09-21, quand le depot etait prive et que chaque minute etait facturee, macOS dix fois.
+#
+# ⚠️ Plusieurs commentaires plus bas parlent encore de `unraid-windows`, `office-windows` ou
+# `macbook-arm64`, et de l'interdiction d'installer quoi que ce soit dessus. Cette regle reste
+# vraie pour une machine PARTAGEE, elle ne s'applique simplement plus ici : un runner GitHub est
+# jetable. Les etapes qui CHERCHENT l'outillage au lieu de l'installer sont conservees telles
+# quelles, parce qu'elles echouent en disant quoi faire, ce qui vaut mieux qu'un message de
+# compilateur. Leur nettoyage est deliberement reporte apres la sortie, pour ne pas remanier la
+# chaine de publication le jour ou on s'en sert.
+name: Release
+
+on:
+  push:
+    tags: ["v[0-9]*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+# Deux tags rapproches ne doivent jamais se doubler : une version plus ancienne qui finit en
+# dernier republierait par-dessus la nouvelle. Arrive pour de vrai sur justmakeq le 2026-09-06.
+# `cancel-in-progress: false` est le point important : annuler mettrait fin a une publication en
+# cours, mettre en file conserve l'ordre des tags.
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  construire:
+    name: ${{ matrix.cible }}
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      #: Meme raison que dans ci.yml : depot public, runners GitHub gratuits.
+      matrix:
+        include:
+          - { nom: linux, cible: linux-x64, binaire: dictum, runner: ubuntu-latest }
+          - { nom: windows, cible: windows-x64, binaire: dictum.exe, runner: windows-latest }
+          - { nom: macos, cible: macos-arm64, binaire: dictum, runner: macos-latest }
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # ⚠️ Obligatoire : sans l'historique complet et les tags, le `git describe` de build.rs
+          # ne voit rien et le binaire s'annoncerait avec la version du manifeste, soit 0.0.0.
+          fetch-depth: 0
+
+      # ⛔ **Une CI n'installe RIEN sur une machine qui n'est pas dediee.**
+      # `office-windows` est le poste de travail de painteau, `macbook-arm64` est le Mac d'un
+      # collegue, hors infrastructure. Le 2026-09-16, un `winget install Rustlang.Rustup` lance
+      # d'ici a **vide `%USERPROFILE%\.cargo\bin`** sur le poste du bureau : Rust y est devenu
+      # inutilisable, les toolchains de 1,9 Go restant intacts mais tous les raccourcis disparus.
+      # Casser le poste de quelqu'un pour faire passer une CI est un prix qu'on ne paie pas.
+      #
+      # Ici on se contente donc de TROUVER l'outillage, et d'echouer en disant quoi faire s'il
+      # manque. Preparer un runner est un geste delibere, pas un effet de bord de la CI.
+      - name: Trouver Rust (macOS, aucune installation)
+        if: matrix.nom == 'macos'
+        shell: bash
+        run: |
+          if command -v cargo >/dev/null 2>&1; then
+            echo "Rust trouve : $(cargo --version)"
+          elif [ -x "$HOME/.cargo/bin/cargo" ]; then
+            echo "Rust present mais hors du PATH de cette session."
+          else
+            echo "::error::Rust absent de ce runner. L'installer A LA MAIN sur la machine :"
+            echo "::error::curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh"
+            exit 1
+          fi
+          # ⚠️ Vaut pour les etapes SUIVANTES, jamais pour celle-ci.
+          echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
+
+      - name: Trouver Rust (Windows, aucune installation)
+        if: matrix.nom == 'windows'
+        shell: pwsh
+        run: |
+          $cargoBin = Join-Path $env:USERPROFILE ".cargo\bin"
+          # ⛔ On EXECUTE cargo au lieu de constater qu'un fichier du meme nom existe.
+          # Sur `unraid-windows`, `cargo.exe` est present mais **ne s'execute pas** (« Aucune
+          # application n'est associee au fichier specifie »), vraisemblablement tronque par
+          # l'action de cache retiree plus haut. Une detection qui se contente de `Get-Command`
+          # declare donc l'outillage present et laisse l'echec eclater trois etapes plus loin,
+          # sur un message qui n'a plus rien a voir avec sa cause.
+          $trouve = $null
+          if (Get-Command cargo -ErrorAction SilentlyContinue) {
+            cargo --version *> $null
+            if ($LASTEXITCODE -eq 0) { $trouve = Get-Command cargo }
+            else { Write-Host "::warning::cargo est present mais ne s'execute pas." }
+            $global:LASTEXITCODE = 0
+          }
+          if ($trouve) {
+            # ⚠️ On rapporte le CHEMIN et on n'EXECUTE PAS `cargo --version` ici. Dans une session
+            # pwsh non interactive de runner, invoquer un binaire natif dans une interpolation
+            # echoue en « StandardOutputEncoding is only supported when standard output is
+            # redirected ». Constater la presence n'exige pas de lancer le programme, et
+            # l'etape « Chaine Rust » affiche la version juste apres, avec une sortie redirigee.
+            Write-Host "Rust trouve : $($trouve.Source)"
+          } elseif (Test-Path (Join-Path $cargoBin "cargo.exe")) {
+            # ⚠️ Cas reel : rustup est installe, mais la session du runner a demarre avant et
+            # n'a pas son repertoire dans le PATH. Tester `Get-Command` seul conclut a tort a
+            # une absence, et c'est ce qui avait declenche l'installation destructrice.
+            Write-Host "Rust present mais hors du PATH de cette session."
+          } else {
+            Write-Host "::error::Rust absent de ce runner. L'installer A LA MAIN sur la machine,"
+            Write-Host "::error::par exemple avec : winget install --id Rustlang.Rustup"
+            exit 1
+          }
+          Add-Content -Path $env:GITHUB_PATH -Value $cargoBin
+
+      # Linux seul conserve une installation automatique : les runners Linux retenus plus haut
+      # (fugu, ofraid, monminilab) sont des machines DEDIEES au role de runner, contrairement aux
+      # deux precedentes.
+      - name: Installer Rust si absent (Linux, machine dediee)
+        if: matrix.nom == 'linux'
+        shell: bash
+        run: |
+          if ! command -v cargo >/dev/null 2>&1; then
+            echo "Rust absent, installation..."
+            curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain none --profile minimal
+          else
+            echo "Rust deja installe : $(cargo --version)"
+          fi
+          # ⚠️ Cet ajout ne vaut que pour les etapes SUIVANTES, jamais pour celle-ci. Le parc a
+          # deja perdu une semaine sur ce point exact (JustMakeQ beta.100).
+          echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
+
+      - name: Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Dependances systeme Tauri si absentes (Linux)
+        if: matrix.nom == 'linux'
+        shell: bash
+        run: |
+          # ⚠️ On teste DEUX paquets : `libasound2-dev` est arrive avec `cpal`, apres que webkit
+          # ait ete installe sur les machines. Ne sonder que le premier ferait sauter
+          # l'installation sur un runner ou seul le second manque, et la compilation
+          # echouerait sur `alsa-sys` sans que personne comprenne pourquoi.
+          if ! dpkg -s libwebkit2gtk-4.1-dev libasound2-dev >/dev/null 2>&1; then
+            sudo apt-get -o DPkg::Lock::Timeout=300 update
+            sudo apt-get -o DPkg::Lock::Timeout=300 install -y               build-essential curl wget file libxdo-dev libssl-dev               libayatana-appindicator3-dev librsvg2-dev               libwebkit2gtk-4.1-dev libgtk-3-dev \
+              libasound2-dev
+          fi
+
+      # ⛔ **PAS de `Swatinem/rust-cache` ici, et c'est deliberé.**
+      # Son option `cache-bin` (activée par défaut) fait **nettoyer `~/.cargo/bin`** a son etape
+      # de fin. Sur un runner GitHub jetable c'est sans consequence ; sur `office-windows`, qui
+      # est le **poste de travail de painteau**, elle a efface son installation Rust DEUX FOIS le
+      # 2026-09-16 (`... Cleaning cargo/bin ...` dans le journal). Et la sauvegarde du cache
+      # echouait ensuite (`gzip: command not found`), donc elle supprimait les binaires **sans
+      # meme produire le cache** pour lequel elle les supprimait.
+      #
+      # Sur des runners persistants, `~/.cargo/registry` survit de toute facon d'une execution a
+      # l'autre : le cache n'apportait presque rien et coutait une installation cassee.
+
+      - name: Dependances npm
+        run: npm ci
+
+      # ⛔ `npm run tauri build` et JAMAIS `cargo build` seul. Sans la fonctionnalite
+      # `custom-protocol` que seul `tauri build` active, le binaire va chercher l'interface sur
+      # localhost au lieu des fichiers embarques : la fenetre s'ouvre sur un
+      # « localhost refused to connect », la ligne de commande marche, et rien dans la
+      # compilation ne le signale. Piege paye trois fois dans le parc, un garde-fou refuse
+      # desormais de demarrer dans ce cas (voir src-tauri/src/main.rs).
+      # ⛔ **Sans cette etape, rien ne compile sur un depot fraichement clone.**
+      # `src-tauri/moteur/` et `src-tauri/runtime/` sont ignores par git et produits par des
+      # scripts : le moteur embarque est telecharge et verifie depuis whisper.cpp, le runtime
+      # Visual C++ est recopie depuis le redistribuable. L'integration continue est restee rouge
+      # du 2026-09-17 au 2026-09-20 faute de ce raccordement, et dix-sept poussees se sont
+      # succede dessus sans que personne ne regarde.
+      #
+      # ⚠️ Windows SEULEMENT : Linux telecharge son moteur au premier usage, macOS n'en a aucun.
+      - name: Preparer le moteur embarque et le runtime (Windows)
+        if: matrix.nom == 'windows'
+        working-directory: .
+        run: |
+          python scripts/preparer-moteur-embarque.py
+          python scripts/preparer-runtime-vcpp.py
+
+      # ⛔ **Tauri ne lit pas `build.rs`.** Le binaire derive bien sa version du tag, mais le nom
+      # et la version du `.deb` et de l'installateur NSIS viennent de `tauri.conf.json`, fige a
+      # `0.0.0` par la convention du parc. Sans cette etape, le controle de version ci-dessous
+      # PASSE (le binaire dit `0.1.0`) pendant que le `.deb` publie s'appelle `Dictum_0.0.0` :
+      # `apt` enregistre `0.0.0` et **ne proposera jamais aucune mise a jour**, quel que soit le
+      # nombre de tags poses ensuite. Rien n'echoue nulle part.
+      #
+      # ⚠️ Hors tag on ne touche a rien : un `workflow_dispatch` doit produire exactement ce que
+      # produit une construction locale.
+      #
+      # ⛔ Dedoublee par systeme pour la meme raison que les etapes de verification plus bas :
+      # `unraid-windows` n'a pas Git Bash.
+      - name: Poser la version du tag dans le manifeste (Unix)
+        if: matrix.nom != 'windows' && github.ref_type == 'tag'
+        shell: bash
+        run: python3 scripts/poser-version.py --version "${GITHUB_REF_NAME#v}"
+
+      - name: Poser la version du tag dans le manifeste (Windows)
+        if: matrix.nom == 'windows' && github.ref_type == 'tag'
+        shell: pwsh
+        run: python scripts/poser-version.py --version ($env:GITHUB_REF_NAME -replace '^v', '')
+
+      # ⛔ **`DICTUM_VERSION` n'est pas une commodite, il repare ce que l'etape precedente casse.**
+      # `build.rs` derive la version par `git describe --dirty`, et poser la version dans le
+      # manifeste SALIT l'arbre : le binaire s'annoncait donc `0.1.0-dirty` et le controle juste
+      # en dessous echouait sur les trois systemes, au premier tag. Le correctif a casse le
+      # garde-fou cense le proteger, exactement le motif « tester l'artefact que l'edition
+      # produit, jamais une chaine qu'une autre edition de la meme passe introduit ».
+      #
+      # `build.rs` prevoit cette variable comme premier niveau de resolution, precisement pour
+      # que la CI puisse trancher, et elle rend la version independante de la proprete de l'arbre.
+      # Le `v` initial est retire par `build.rs` lui-meme.
+      - name: Compiler
+        env:
+          DICTUM_VERSION: ${{ github.ref_type == 'tag' && github.ref_name || '' }}
+        run: npm run tauri build
+
+      # ⛔ Dedoublee par systeme : **`unraid-windows` n'a pas Git Bash**, donc `shell: bash` y rend
+      # `bash: command not found`, alors que `office-windows` l'a. Les deux runners portent les
+      # memes etiquettes et se relaient sans prevenir.
+      - name: Verifier que le binaire annonce la version du tag (Unix)
+        if: matrix.nom != 'windows'
+        shell: bash
+        run: |
+          attendu="${GITHUB_REF_NAME#v}"
+          obtenu="$(./src-tauri/target/release/${{ matrix.binaire }} --version)"
+          echo "attendu=$attendu obtenu=$obtenu"
+          # Sur un declenchement manuel, GITHUB_REF_NAME est un nom de branche : on ne compare
+          # que sur un vrai tag.
+          if [ "$GITHUB_REF_TYPE" = "tag" ] && [ "$obtenu" != "$attendu" ]; then
+            echo "::error::Le binaire s'annonce '$obtenu' alors que le tag dit '$attendu'."
+            exit 1
+          fi
+
+      - name: Verifier que le binaire annonce la version du tag (Windows)
+        if: matrix.nom == 'windows'
+        shell: pwsh
+        run: |
+          $attendu = $env:GITHUB_REF_NAME -replace '^v', ''
+          $chemin = "src-tauri\target\release\${{ matrix.binaire }}"
+          $obtenu = (& $chemin --version | Out-String).Trim()
+          Write-Host "attendu=$attendu obtenu=$obtenu"
+          if ($env:GITHUB_REF_TYPE -eq 'tag' -and $obtenu -ne $attendu) {
+            Write-Host "::error::Le binaire s'annonce '$obtenu' alors que le tag dit '$attendu'."
+            exit 1
+          }
+      # ⛔ Dedoublee pour la meme raison : pas de Git Bash sur `unraid-windows`.
+      - name: Renommer pour la publication (Unix)
+        if: matrix.nom != 'windows'
+        shell: bash
+        run: |
+          mkdir -p diffusion
+          cp "src-tauri/target/release/${{ matrix.binaire }}" "diffusion/dictum-${{ matrix.cible }}"
+
+          # ⛔ **Le binaire nu ne s'installe pas.** Il etait seul publie pour Linux, donc il n'y
+          # avait rien a poser dans le depot apt ni a donner a quelqu'un : `tauri build` produit
+          # pourtant un `.deb` complet, avec ses dependances declarees et son entree de menu.
+          # Le laisser dans `target/` revenait a jeter le seul artefact utilisable.
+          if [ "${{ matrix.nom }}" = "linux" ]; then
+            paquet=$(find src-tauri/target/release/bundle/deb -name '*.deb' | head -1)
+            if [ -z "$paquet" ]; then
+              echo "::error::aucun .deb produit, alors que bundle.targets vaut 'all'"
+              exit 1
+            fi
+            cp "$paquet" "diffusion/$(basename "$paquet")"
+          fi
+
+      - name: Renommer pour la publication (Windows)
+        if: matrix.nom == 'windows'
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path diffusion | Out-Null
+          Copy-Item "src-tauri\target\release\${{ matrix.binaire }}" "diffusion\dictum-${{ matrix.cible }}.exe"
+
+          # Meme raison que pour le `.deb` : c'est l'installateur qui s'installe, pas l'exe nu,
+          # qui arriverait sans le moteur embarque ni le runtime Visual C++ poses a cote.
+          # Barres obliques et pas antislashs : PowerShell les accepte, et `bundle\nsis` est
+          # exactement la forme qu'un outil peut reinterpreter en saut de ligne. Le garde-fou
+          # `verifier-caracteres-de-controle.py` la signale, a juste titre.
+          $setup = Get-ChildItem 'src-tauri/target/release/bundle/nsis' -Filter '*-setup.exe' -ErrorAction SilentlyContinue | Select-Object -First 1
+          if (-not $setup) { Write-Host '::error::aucun installateur NSIS produit'; exit 1 }
+          Copy-Item $setup.FullName "diffusion\$($setup.Name)"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dictum-${{ matrix.cible }}
+          path: diffusion/*
+
+  # ── Depot apt (axolotl, /opt/apt) ─────────────────────────────────────────────────
+  #
+  # ⛔ **Sur un TAG seulement**, comme la publication GitHub : un `workflow_dispatch` construit et
+  # depose les artefacts sans rien publier nulle part. Le motif a deja ete paye sur `justmakeq`,
+  # ou ni l'envoi R2 ni la publication apt n'avaient de condition avant le 2026-09-08 : tester le
+  # workflow n'y etait donc pas possible sans consequence.
+  #
+  # ⚠️ **Cle DEDIEE a commande forcee, et pas la cle d'acces general a axolotl.** Le parc admet les
+  # deux (`justmakeq` et `hae-app` utilisent la seconde parce qu'ils sont prives), mais celle-ci ne
+  # peut STRICTEMENT rien faire d'autre que publier un paquet nomme `dictum` : pas de shell, pas
+  # de lecture de fichier, pas de redirection de port. Ses trois modes de refus ont ete prouves le
+  # 2026-09-21 avant qu'elle soit gardee. Si ce depot devient public un jour, rien ne change.
+  apt:
+    name: Depot apt
+    needs: construire
+    if: github.ref_type == 'tag'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: dictum-linux-x64
+          path: diffusion
+
+      - name: Publier le paquet
+        env:
+          CLE: ${{ secrets.AXOLOTL_APT_KEY }}
+          HOTE: ${{ secrets.AXOLOTL_HOST }}
+          UTILISATEUR: ${{ secrets.AXOLOTL_USER }}
+        run: |
+          paquet=$(find diffusion -name '*.deb' | head -1)
+          if [ -z "$paquet" ]; then
+            echo "::error::aucun .deb dans les artefacts"
+            exit 1
+          fi
+          echo "$CLE" > /tmp/cle_apt
+          chmod 600 /tmp/cle_apt
+
+          # ⚠️ Le `.deb` part sur l'ENTREE STANDARD : la commande forcee le lit la, verifie son
+          # nom, puis appelle `reprepro`. Aucun chemin de fichier n'est transmis, donc aucun
+          # chemin ne peut etre detourne.
+          ssh -i /tmp/cle_apt -o StrictHostKeyChecking=no -o BatchMode=yes \
+              "$UTILISATEUR@$HOTE" < "$paquet"
+          rm -f /tmp/cle_apt
+          echo "Publie sur https://apt.breizhzion.com"
+
+  # ── Depot pacman (axolotl, /opt/pacman) ───────────────────────────────────────────
+  #
+  # Memes regles que le depot apt : tag seulement, cle dediee a commande forcee qui ne publie
+  # qu'un paquet nomme `dictum-bin`, ses trois modes de refus prouves le 2026-09-21.
+  #
+  # ⚠️ **Le paquet se construit dans un conteneur Arch, et les fichiers y entrent par `docker cp`
+  # et pas par `-v`.** Un montage lie la construction aux permissions de l'hote, ce qui a deja
+  # coute sur les runners du parc ; une copie ne suppose rien de l'hote.
+  #
+  # ⚠️ **`makepkg` ne telecharge pas les `source` du PKGBUILD** : il trouve `dictum` et
+  # `dictum.png` deja poses sous ces noms exacts dans le repertoire de construction et les prend
+  # tels quels. C'est indispensable, ce depot etant prive.
+  # ⚠️ **`ubuntu-latest` et pas un runner maison, contrairement aux jobs de construction**, et
+  # c'est un ecart assume plutot qu'un oubli. Le motif de la regle est le cout des minutes sur un
+  # depot prive ; ces deux jobs de publication pesent environ deux minutes et demie de Linux par
+  # tag, facture au taux le plus bas. En face, faire tourner celui-ci en local demanderait
+  # d'ajouter le compte du runner au groupe `docker` sur `fugu` (mesure le 2026-09-21 : Docker y
+  # est installe, le compte n'est pas dans le groupe), donc de MODIFIER une machine pour une
+  # economie negligeable.
+  pacman:
+    name: Depot pacman
+    needs: construire
+    if: github.ref_type == 'tag'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: dictum-linux-x64
+          path: diffusion
+
+      - name: Preparer le PKGBUILD
+        run: |
+          python3 scripts/preparer-pkgbuild.py \
+            --version "${GITHUB_REF_NAME#v}" \
+            --binaire diffusion/dictum-linux-x64 \
+            --destination construction-arch
+
+      - name: Construire le paquet Arch
+        run: |
+          docker run -d --name batisseur-arch archlinux:base-devel sleep 900
+          docker exec batisseur-arch useradd -m batisseur
+          docker cp construction-arch batisseur-arch:/home/batisseur/construction
+          docker exec batisseur-arch chown -R batisseur:batisseur /home/batisseur/construction
+
+          # ⚠️ Les quatre dependances sont VERIFIEES contre les depots Arch a chaque construction,
+          # et la liste est DERIVEE du PKGBUILD plutot que recopiee ici : un nom de paquet qui
+          # disparait ou change amont ferait sinon une installation qui reussit et une
+          # application qui refuse de demarrer en nommant un `.so`, loin de sa cause.
+          docker exec batisseur-arch pacman -Sy --noconfirm >/dev/null
+          docker exec -w /home/batisseur/construction batisseur-arch \
+            bash -c 'source PKGBUILD && pacman -Si "${depends[@]}" >/dev/null'
+
+          # `--nodeps` parce que la verification ci-dessus suffit : ce paquet repackage un binaire
+          # deja lie, rien n'est compile ici, et installer webkit2gtk pour rien couterait des
+          # centaines de megaoctets a chaque tag.
+          docker exec -u batisseur -w /home/batisseur/construction batisseur-arch makepkg -f --nodeps
+          nom=$(docker exec -u batisseur -w /home/batisseur/construction batisseur-arch \
+                  bash -c 'ls -1 *.pkg.tar.zst' | tr -d '\r')
+          docker cp "batisseur-arch:/home/batisseur/construction/$nom" "$nom"
+          docker rm -f batisseur-arch
+          echo "PAQUET=$nom" >> "$GITHUB_ENV"
+
+      - name: Publier le paquet
+        env:
+          CLE: ${{ secrets.AXOLOTL_PACMAN_KEY }}
+          HOTE: ${{ secrets.AXOLOTL_HOST }}
+          UTILISATEUR: ${{ secrets.AXOLOTL_USER }}
+        run: |
+          echo "$CLE" > /tmp/cle_pacman
+          chmod 600 /tmp/cle_pacman
+
+          # ⚠️ Comme pour l'apt : le paquet part sur l'ENTREE STANDARD. La commande forcee lit le
+          # nom dans `.PKGINFO` et RECONSTRUIT le nom de fichier, donc aucun chemin fourni ici ne
+          # peut ecrire ailleurs que dans le depot.
+          ssh -i /tmp/cle_pacman -o StrictHostKeyChecking=no -o BatchMode=yes \
+              "$UTILISATEUR@$HOTE" < "$PAQUET"
+          rm -f /tmp/cle_pacman
+          echo "Publie sur https://pacman.breizhzion.com"
+
+  # ── Telechargement public (R2, dl.breizhzion.com) ─────────────────────────────────
+  #
+  # ⛔ **Ce job existe parce que sans lui personne sous Windows ne pouvait obtenir Dictum.** Le
+  # depot etait PRIVE quand la 0.1.0 est sortie : ses releases GitHub n'etaient pas
+  # telechargeables, l'installateur n'existait nulle part d'accessible, et le site vitrine
+  # pointait encore vers l'ancien depot et sa 1.7.0.
+  #
+  # ⚠️ Le depot est public depuis, donc une release GitHub suffirait techniquement. Ce job reste
+  # quand meme, et pas par inertie : un **nom fixe** que le site peut viser sans etre redeploye a
+  # chaque version, et une **copie versionnee** qu'un gestionnaire de paquets peut epingler, sont
+  # deux besoins qu'une release GitHub ne couvre ni l'un ni l'autre.
+  #
+  # Motif transcrit de `hublot` (`release-windows.yml`), qui suit la convention de
+  # `docs/distribution.md` du depot admin. Trois formes d'URL qui ne servent pas a la meme chose :
+  # le nom fixe que le site lit, la copie versionnee qu'un gestionnaire de paquets epingle, et le
+  # manifeste qui evite de redeployer le site a chaque version.
+  #
+  # ⚠️ **`aws s3` et pas `wrangler`** : les permissions R2 par bucket ne valent que pour l'API S3,
+  # celle de wrangler exige une permission a l'echelle du COMPTE. Le jeton utilise ici est donc
+  # limite au seul bucket de diffusion, ce que wrangler ne saurait pas accepter.
+  #
+  # ⚠️ **Ecrit en bash et pas en pwsh, deliberement** : la version pwsh de ce motif a un piege
+  # documente, le `$LASTEXITCODE` d'un `aws` en echec attendu qui survit jusqu'a la fin du script
+  # et fait echouer l'etape alors que le cas est traite. Le `||` de bash remet le code a zero.
+  diffusion:
+    name: Telechargement public
+    needs: construire
+    if: github.ref_type == 'tag'
+    runs-on: ubuntu-latest
+    env:
+      AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+      AWS_DEFAULT_REGION: auto
+      # ⚠️ Sans ces deux variables, une AWS CLI recente calcule un checksum CRC32 par defaut
+      # que R2 refuse, et l'envoi echoue sans rapport avec les droits.
+      AWS_REQUEST_CHECKSUM_CALCULATION: when_required
+      AWS_RESPONSE_CHECKSUM_VALIDATION: when_required
+      DEPOT: s3://breizhzion-releases/dictum-desktop
+      BASE: https://dl.breizhzion.com/dictum-desktop
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: diffusion
+          merge-multiple: true
+
+      - name: Envoyer les installateurs
+        run: |
+          set -euo pipefail
+          version="${GITHUB_REF_NAME#v}"
+          r2="https://${{ secrets.R2_ACCOUNT_ID }}.r2.cloudflarestorage.com"
+
+          setup=$(find diffusion -name '*-setup.exe' | head -1)
+          paquet=$(find diffusion -name '*.deb' | head -1)
+          for f in "$setup" "$paquet"; do
+            if [ -z "$f" ]; then
+              echo "::error::un artefact attendu manque dans les telechargements"
+              exit 1
+            fi
+          done
+
+          # Nom fixe ET copie versionnee pour Windows. ⛔ La copie versionnee n'est pas une
+          # precaution theorique : un manifest winget porte le SHA256 de l'installateur, donc
+          # ecraser le nom fixe invalide l'empreinte de toutes les versions deja publiees, et le
+          # canal casse **a la release suivante** et pas a la publication.
+          for nom in "Dictum-Setup-x64.exe" "Dictum-Setup-x64-$version.exe"; do
+            aws s3 cp "$setup" "$DEPOT/$nom" --endpoint-url "$r2" \
+              --content-type application/octet-stream
+          done
+
+          # ⚠️ Linux n'a QU'un nom fixe, sans copie versionnee : le versionnement est delegue au
+          # depot apt, dont le pool garde chaque version et dont l'index epingle deja les SHA256.
+          # Ce fichier n'existe que pour qui veut un telechargement direct sans ajouter le depot.
+          aws s3 cp "$paquet" "$DEPOT/Dictum-Linux-x64.deb" --endpoint-url "$r2" \
+            --content-type application/vnd.debian.binary-package
+
+      - name: Lire le manifeste existant
+        run: |
+          set -uo pipefail
+          r2="https://${{ secrets.R2_ACCOUNT_ID }}.r2.cloudflarestorage.com"
+          # ⛔ **Le `||` traite la PREMIERE publication, et c'est le seul cas special de toute la
+          # chaine.** Un manifeste qui n'existe pas encore fait legitimement echouer la lecture :
+          # sans ce repli, le tout premier tag echouerait ici, et nulle part ailleurs.
+          aws s3 cp "$DEPOT/latest.json" _ancien.json --endpoint-url "$r2" 2>/dev/null \
+            || echo '{}' > _ancien.json
+          cat _ancien.json
+
+      - name: Construire le manifeste
+        shell: python
+        run: |
+          import json, os
+
+          base = os.environ["BASE"]
+          tag = os.environ["GITHUB_REF_NAME"]
+          version = tag.removeprefix("v")
+
+          # Lire-modifier-ecrire : on conserve les entrees des autres systemes plutot que de
+          # reecrire le manifeste, le job pouvant un jour ne publier qu'une plateforme.
+          try:
+              with open("_ancien.json") as f:
+                  existant = json.load(f)
+          except Exception:
+              existant = {}
+
+          fichiers = existant.get("files", {})
+          # ⚠️ Vocabulaire du parc (`windows_x64`), pas les noms de cible Rust : une cle que des
+          # sites lisent et un nom d'artefact sont deux choses differentes.
+          fichiers["windows_x64"] = {
+              "url": f"{base}/Dictum-Setup-x64.exe",
+              "versioned_url": f"{base}/Dictum-Setup-x64-{version}.exe",
+              "version": version,
+          }
+          fichiers["linux_x64"] = {
+              "url": f"{base}/Dictum-Linux-x64.deb",
+              "version": version,
+          }
+
+          manifeste = {"version": version, "tag": tag, "files": fichiers}
+          with open("latest.json", "w", newline="") as f:
+              json.dump(manifeste, f, indent=2)
+              f.write("\n")
+          print(json.dumps(manifeste, indent=2))
+
+      - name: Envoyer le manifeste
+        run: |
+          set -euo pipefail
+          r2="https://${{ secrets.R2_ACCOUNT_ID }}.r2.cloudflarestorage.com"
+          aws s3 cp latest.json "$DEPOT/latest.json" --endpoint-url "$r2" \
+            --content-type application/json
+          echo "Publie sur $BASE/"
+
+  publier:
+    needs: construire
+    # ⛔ **Sur un TAG seulement**, et cette condition etait deja la : j'ai failli en ajouter une
+    # seconde en croyant qu'elle manquait. Ce qu'elle permet merite d'etre dit, parce qu'on ne le
+    # devine pas en lisant le declencheur : un `workflow_dispatch` **construit et depose les
+    # artefacts sans rien publier**, ce qui est exactement ce dont on a besoin pour eprouver la
+    # chaine avant de poser une premiere etiquette.
+    if: github.ref_type == 'tag'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: diffusion
+          merge-multiple: true
+
+      - name: Publier la release
+        run: gh release create "$GITHUB_REF_NAME" diffusion/* --repo "$GITHUB_REPOSITORY" --title "$GITHUB_REF_NAME" --generate-notes
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -1,0 +1,53 @@
+[package]
+name = "dictum"
+version = "0.0.0"
+edition = "2024"
+rust-version = "1.85"
+description = "Dictee vocale locale, multiplateforme"
+publish = false
+
+[[bin]]
+name = "dictum"
+path = "src/main.rs"
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+# `tray-icon` des maintenant : l'application vit dans la zone de notification, la fenetre n'en
+# est qu'une facette. L'icone arrive a l'etape 2.
+# `image-png` : les icones de barre sont des PNG embarques, decodes par Tauri a l'execution.
+tauri = { version = "2", features = ["tray-icon", "image-png"] }
+serde = { version = "1", features = ["derive"] }
+# Gere l'inscription au demarrage du systeme. Sur Windows il s'agit de la cle de registre
+# HKCU\Software\Microsoft\Windows\CurrentVersion\Run, donc sans elevation.
+tauri-plugin-autostart = "2"
+serde_json = "1.0.151"
+ureq = "2"
+sha2 = "0.11.0"
+zip = { version = "7.2.0", default-features = false, features = ["deflate"] }
+# Capture microphone. Multiplateforme des le depart : WASAPI, CoreAudio et ALSA derriere une
+# seule interface, ce qui evite d'ecrire une capture Windows en dur puis de la reecrire.
+cpal = "0.18.2"
+# Raccourci global. ⚠️ Il doit rendre l'appui ET le relachement : le raccourci de Dictum se tient
+# enfonce, il ne se declenche pas d'une pression.
+tauri-plugin-global-shortcut = "2.3.2"
+tauri-plugin-clipboard-manager = "2.3.3"
+tauri-plugin-notification = "2.4.0"
+tar = "0.4.46"
+flate2 = "1.1.10"
+
+# ⚠️ Uniquement sur Windows : l'injection au curseur y passe par `SendInput`. Ailleurs elle a une
+# autre implementation (voir `src/platform/mod.rs`), et lier cette caisse partout ferait echouer
+# la compilation des autres cibles pour une dependance qui ne les concerne pas.
+[target.'cfg(windows)'.dependencies]
+windows = { version = "0.62.2", features = ["Win32_UI_Input_KeyboardAndMouse", "Win32_Foundation", "Win32_UI_WindowsAndMessaging"] }
+
+[target.'cfg(target_os = "linux")'.dependencies]
+enigo = "0.6.1"
+
+[profile.release]
+opt-level = 3
+lto = "thin"
+codegen-units = 1
+strip = true

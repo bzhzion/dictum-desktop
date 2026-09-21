@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- Le titre n'apparait nulle part a l'ecran puisque la fenetre n'a pas de barre de titre,
+         mais il reste ce qu'annoncent les lecteurs d'ecran et le gestionnaire de fenetres. -->
+    <title>Dictum</title>
+    <link rel="stylesheet" href="/src/styles/socle.css" />
+  </head>
+  <body>
+    <!-- ⚠️ Le bandeau porte `data-glisser`, qui pose `-webkit-app-region: drag`. Cette propriete
+         AVALE les clics de ses enfants : chaque bouton pose dessus doit porter `data-non-glisser`,
+         sinon il ne repond jamais et rien ne le signale. -->
+    <header class="bandeau" data-glisser>
+      <div class="marque">
+        <span class="temoin" data-etat="repos" aria-hidden="true"></span>
+        <span class="nom">Dictum</span>
+        <!-- L'etat est ECRIT et pas seulement colore (WCAG 1.4.1), et annonce aux lecteurs
+             d'ecran quand il change. -->
+        <span class="etat" id="etat" role="status">Prêt</span>
+      </div>
+
+      <div class="commandes" data-non-glisser>
+        <button class="commande" id="reduire" type="button" aria-label="Réduire la fenêtre">
+          <svg viewBox="0 0 12 12" aria-hidden="true"><path d="M2 6h8" /></svg>
+        </button>
+        <button class="commande commande-fermer" id="fermer" type="button" aria-label="Fermer la fenêtre">
+          <svg viewBox="0 0 12 12" aria-hidden="true"><path d="M3 3l6 6M9 3l-6 6" /></svg>
+        </button>
+      </div>
+    </header>
+
+    <main class="panneau">
+      <!-- Premier ecran au premier lancement : sans modele, Dictum ne peut rien faire, donc
+           c'est la premiere chose a regler. -->
+      <section class="module" aria-labelledby="titre-modeles">
+        <h2 class="section" id="titre-modeles">Transcription</h2>
+        <!-- ⚠️ Le mot « moteur » a ete retire de l'ecran le 2026-09-17 : c'est le mot des
+             developpeurs, il ne dit rien a qui decouvre. On nomme les deux pieces par ce
+             qu'elles font. -->
+        <p class="corps">
+          Pour transformer votre voix en texte, Dictum a besoin de deux choses : un petit
+          <strong>programme</strong> qui fait le calcul, et un <strong>modèle</strong> qui
+          connaît la langue. Les deux restent sur votre ordinateur, et aucun enregistrement
+          n’en sort.
+        </p>
+
+        <!-- ⛔ Le moteur vient AVANT les modeles a l'ecran : sans lui, aucun modele ne
+             sert a rien. C'est le binaire de whisper.cpp, telecharge plutot que compile avec
+             nous, parce que le support du processeur graphique est une question de QUEL binaire
+             on installe et pas de code. -->
+        <h3 class="sous-section">Sur quoi l’ordinateur calcule</h3>
+        <div id="moteurs"></div>
+
+        <h3 class="sous-section">Modèles de langue</h3>
+        <div id="modeles"></div>
+
+        <!-- ⚠️ Zone de message obligatoire : une empreinte qui ne correspond pas est le
+             message le plus utile que cet ecran puisse produire, il ne doit jamais se perdre. -->
+        <p class="message" id="message-modeles" role="status"></p>
+      </section>
+
+      <!-- ⛔ Les reglages vivent ICI et nulle part ailleurs. Le menu de l'icone de la zone de
+           notification ne porte que des actions. Voir src-tauri/src/reglages.rs. -->
+      <section class="module" aria-labelledby="titre-reglages">
+        <div class="entete-section">
+          <h2 class="section" id="titre-reglages">Réglages</h2>
+
+          <!-- ⚠️ Bascule minimale en haut a droite. C'est une VRAIE case a cocher, juste
+               dessinee petit : un faux interrupteur en div perdrait le clavier, le role annonce
+               et l'etat coche, qu'on n'aurait plus qu'a reconstruire a la main. -->
+          <div class="bascule-avances">
+            <input type="checkbox" class="interrupteur" id="avances" />
+            <label for="avances">Avancés</label>
+          </div>
+        </div>
+
+        <!-- ⛔ Le repli des reglages avances est acceptable A LA CONDITION que rien de modifie
+             ne devienne introuvable : la note ci-dessous dit combien d'entre eux ne sont plus a
+             leur valeur par defaut quand ils sont masques. -->
+        <p class="note" id="note-avances" hidden></p>
+
+        <!-- ⚠️ Ce groupe est ECRIT A LA MAIN et pas genere avec les autres, parce que sa
+             source de verite n'est pas notre fichier de configuration mais le SYSTEME (la cle Run
+             de Windows). Le recopier dans le fichier creerait un miroir qui finirait par diverger
+             de l'original. Voir src-tauri/src/reglages.rs. -->
+        <fieldset class="groupe">
+          <legend class="section">Démarrage</legend>
+          <div class="reglage">
+            <input type="checkbox" class="interrupteur" id="demarrage" disabled aria-describedby="demarrage-aide" />
+            <label for="demarrage">
+              <span class="reglage-titre">Démarrer avec le système</span>
+              <span class="reglage-aide" id="demarrage-aide">
+                Dictum s'ouvre dans la zone de notification à l'ouverture de votre session, sans
+                afficher sa fenêtre.
+              </span>
+            </label>
+          </div>
+        </fieldset>
+
+        <!-- Les autres groupes sont generes depuis src/reglages.ts, pour que l'etiquette liee, le
+             texte d'aide rattache et la taille de cible soient identiques partout. -->
+        <div id="reglages"></div>
+
+        <!-- Les substitutions et l'historique sont des LISTES, pas des valeurs : ils ne passent
+             pas par la generation declarative des autres reglages, qui ne connait que les
+             booleens, les nombres, les choix et le texte. -->
+        <div id="substitutions"></div>
+        <div id="historique"></div>
+
+        <!-- ⚠️ Zone de message obligatoire : une ecriture peut etre refusee par le systeme,
+             et un reglage qui echoue en silence est pire que pas de reglage du tout. -->
+        <p class="message" id="message-reglages" role="status"></p>
+      </section>
+
+      <!-- Bloc « A propos » en bas, motif du parc : les mesures, puis le copyright centre
+           dessous. ⚠️ Il est DANS la zone qui defile et pas colle au bas de la fenetre : un
+           pied fixe mangerait une bande de 80 px sur une fenetre de 640. -->
+      <footer class="pied">
+        <dl class="mesures" id="mesures">
+          <div><dt>Version</dt><dd id="version">...</dd></div>
+          <div><dt>Plateforme</dt><dd id="plateforme">...</dd></div>
+          <!-- ⚠️ « Injection » est le mot du domaine, il ne dit rien a qui decouvre le logiciel.
+               C'est la facon dont Dictum tape le texte dans l'application visee. -->
+          <div><dt>Écriture du texte</dt><dd id="injection">...</dd></div>
+        </dl>
+
+        <p class="chemin">
+          <span class="chemin-libelle">Fichier de réglages</span>
+          <code id="chemin-reglages">...</code>
+        </p>
+
+        <!-- ⚠️ L'annee est CALCULEE a l'execution, jamais ecrite en dur : une annee figee
+             devient fausse le 1er janvier, et personne ne pense a la corriger. -->
+        <p class="copyright" id="copyright"></p>
+      </footer>
+    </main>
+
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

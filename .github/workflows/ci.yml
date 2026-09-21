@@ -1,0 +1,247 @@
+# Chaine de verification, posee AVANT toute fonctionnalite.
+#
+# C'est delibere : brancher clippy en erreurs sur un projet vide coute zero, le brancher sur
+# plusieurs milliers de lignes deja ecrites coute une semaine. L'ancienne version de Dictum a
+# livre sept versions mineures sans qu'aucun workflow ne compile seulement le projet.
+#
+# ⚠️ Runners GitHub : ce depot est PUBLIC depuis le 2026-09-21, donc ils y sont gratuits, comme
+# pour les autres depots publics du parc (noisecrypt, beammeup, hublot). Les depots prives
+# (hae-app, dictum-app) restent en self-hosted parce que leurs minutes sont facturees. Voir
+# docs/github-runners.md du depot admin.
+#
+# ⚠️ Comme dans release.yml, les commentaires qui nomment des machines maison decrivent une regle
+# toujours valable ailleurs, mais sans objet ici : un runner GitHub est jetable.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+  RUSTFLAGS: -D warnings
+
+jobs:
+  verifier:
+    name: ${{ matrix.nom }}
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      # Jamais d'arret au premier echec : on veut savoir si un defaut touche une seule
+      # plateforme ou les trois, l'information est differente.
+      fail-fast: false
+      # Runners GitHub et pas les notres : ce depot est PUBLIC, donc ils y sont gratuits, et
+      # c'est la convention du parc. Le job qui choisissait une machine maison n'existait que
+      # parce que les minutes d'un depot prive sont facturees, macOS dix fois.
+      matrix:
+        include:
+          - { nom: linux, runner: ubuntu-latest }
+          - { nom: windows, runner: windows-latest }
+          - { nom: macos, runner: macos-latest }
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # ── Outillage, pas garanti present sur les machines maison ──────────────────────
+      # Motifs repris tels quels de hae-app, qui compile du Tauri sur ces memes machines.
+
+      # ⛔ **Une CI n'installe RIEN sur une machine qui n'est pas dediee.**
+      # `office-windows` est le poste de travail de painteau, `macbook-arm64` est le Mac d'un
+      # collegue, hors infrastructure. Le 2026-09-16, un `winget install Rustlang.Rustup` lance
+      # d'ici a **vide `%USERPROFILE%\.cargo\bin`** sur le poste du bureau : Rust y est devenu
+      # inutilisable, les toolchains de 1,9 Go restant intacts mais tous les raccourcis disparus.
+      # Casser le poste de quelqu'un pour faire passer une CI est un prix qu'on ne paie pas.
+      #
+      # Ici on se contente donc de TROUVER l'outillage, et d'echouer en disant quoi faire s'il
+      # manque. Preparer un runner est un geste delibere, pas un effet de bord de la CI.
+      - name: Trouver Rust (macOS, aucune installation)
+        if: matrix.nom == 'macos'
+        shell: bash
+        run: |
+          if command -v cargo >/dev/null 2>&1; then
+            echo "Rust trouve : $(cargo --version)"
+          elif [ -x "$HOME/.cargo/bin/cargo" ]; then
+            echo "Rust present mais hors du PATH de cette session."
+          else
+            echo "::error::Rust absent de ce runner. L'installer A LA MAIN sur la machine :"
+            echo "::error::curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh"
+            exit 1
+          fi
+          # ⚠️ Vaut pour les etapes SUIVANTES, jamais pour celle-ci.
+          echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
+
+      - name: Trouver Rust (Windows, aucune installation)
+        if: matrix.nom == 'windows'
+        shell: pwsh
+        run: |
+          $cargoBin = Join-Path $env:USERPROFILE ".cargo\bin"
+          # ⛔ On EXECUTE cargo au lieu de constater qu'un fichier du meme nom existe.
+          # Sur `unraid-windows`, `cargo.exe` est present mais **ne s'execute pas** (« Aucune
+          # application n'est associee au fichier specifie »), vraisemblablement tronque par
+          # l'action de cache retiree plus haut. Une detection qui se contente de `Get-Command`
+          # declare donc l'outillage present et laisse l'echec eclater trois etapes plus loin,
+          # sur un message qui n'a plus rien a voir avec sa cause.
+          $trouve = $null
+          if (Get-Command cargo -ErrorAction SilentlyContinue) {
+            cargo --version *> $null
+            if ($LASTEXITCODE -eq 0) { $trouve = Get-Command cargo }
+            else { Write-Host "::warning::cargo est present mais ne s'execute pas." }
+            $global:LASTEXITCODE = 0
+          }
+          if ($trouve) {
+            # ⚠️ On rapporte le CHEMIN et on n'EXECUTE PAS `cargo --version` ici. Dans une session
+            # pwsh non interactive de runner, invoquer un binaire natif dans une interpolation
+            # echoue en « StandardOutputEncoding is only supported when standard output is
+            # redirected ». Constater la presence n'exige pas de lancer le programme, et
+            # l'etape « Chaine Rust » affiche la version juste apres, avec une sortie redirigee.
+            Write-Host "Rust trouve : $($trouve.Source)"
+          } elseif (Test-Path (Join-Path $cargoBin "cargo.exe")) {
+            # ⚠️ Cas reel : rustup est installe, mais la session du runner a demarre avant et
+            # n'a pas son repertoire dans le PATH. Tester `Get-Command` seul conclut a tort a
+            # une absence, et c'est ce qui avait declenche l'installation destructrice.
+            Write-Host "Rust present mais hors du PATH de cette session."
+          } else {
+            Write-Host "::error::Rust absent de ce runner. L'installer A LA MAIN sur la machine,"
+            Write-Host "::error::par exemple avec : winget install --id Rustlang.Rustup"
+            exit 1
+          }
+          Add-Content -Path $env:GITHUB_PATH -Value $cargoBin
+
+      # Linux seul conserve une installation automatique : les runners Linux retenus plus haut
+      # (fugu, ofraid, monminilab) sont des machines DEDIEES au role de runner, contrairement aux
+      # deux precedentes.
+      - name: Installer Rust si absent (Linux, machine dediee)
+        if: matrix.nom == 'linux'
+        shell: bash
+        run: |
+          if ! command -v cargo >/dev/null 2>&1; then
+            echo "Rust absent, installation..."
+            curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain none --profile minimal
+          else
+            echo "Rust deja installe : $(cargo --version)"
+          fi
+          # ⚠️ Cet ajout ne vaut que pour les etapes SUIVANTES, jamais pour celle-ci. Le parc a
+          # deja perdu une semaine sur ce point exact (JustMakeQ beta.100).
+          echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
+
+      - name: Node
+        uses: actions/setup-node@v4
+        # ⚠️ Sur un runner self-hosted macOS, ceci exige `AGENT_TOOLSDIRECTORY` dans le fichier
+        # `.env` du runner : sans lui le script d'installation retombe sur
+        # /Users/runner/hostedtoolcache, chemin des runners GitHub heberges, et echoue en
+        # « Permission denied ». Un `env:` d'etape ne suffit pas, la variable n'atteint pas le
+        # script. Piege deja rencontre sur hae-app et justmakeq.
+        with:
+          node-version: 20
+
+      - name: Dependances systeme Tauri si absentes (Linux)
+        if: matrix.nom == 'linux'
+        shell: bash
+        run: |
+          # webkit2gtk et les bibliotheques GTK dont Tauri a besoin pour compiler la webview.
+          # ⚠️ On teste DEUX paquets : `libasound2-dev` est arrive avec `cpal`, apres que webkit
+          # ait ete installe sur les machines. Ne sonder que le premier ferait sauter
+          # l'installation sur un runner ou seul le second manque, et la compilation
+          # echouerait sur `alsa-sys` sans que personne comprenne pourquoi.
+          if ! dpkg -s libwebkit2gtk-4.1-dev libasound2-dev >/dev/null 2>&1; then
+            echo "Dependances systeme Tauri absentes, installation..."
+            # ⚠️ `DPkg::Lock::Timeout` : apt ATTEND le verrou au lieu d'abandonner a la premiere
+            # seconde. Sans lui, la CI devient rouge pour une raison qui n'a rien a voir avec le
+            # code, et une CI rouge au hasard finit ignoree.
+            #
+            # ⛔ La cause verifiee le 2026-09-16 n'etait PAS une mise a jour automatique de
+            # Debian (`unattended-upgrades` n'est meme pas installe sur fugu) mais DEUX de nos
+            # propres executions. Le mecanisme merite d'etre connu : un runner self-hosted ne
+            # traite qu'un job a la fois, mais `cancel-in-progress: true` a annule le premier,
+            # GitHub a libere le runner qui a pris le suivant **pendant que le `sudo apt-get` du
+            # job annule tournait toujours**. Une annulation tue l'etape, pas ses processus fils
+            # lances sous `sudo`.
+            sudo apt-get -o DPkg::Lock::Timeout=300 update
+            sudo apt-get -o DPkg::Lock::Timeout=300 install -y \
+              build-essential curl wget file libxdo-dev libssl-dev \
+              libayatana-appindicator3-dev librsvg2-dev \
+              libwebkit2gtk-4.1-dev libgtk-3-dev \
+              libasound2-dev
+          else
+            echo "Dependances systeme Tauri deja presentes."
+          fi
+
+      # ⚠️ `rustup` peut manquer la ou `cargo` est present : c'est le cas sur `unraid-windows`.
+      # Son absence n'empeche pas de compiler, elle empeche seulement d'honorer le canal epingle
+      # par `rust-toolchain.toml`. On le SIGNALE donc au lieu d'echouer : bloquer la CI pour ca
+      # rendrait le depot rouge sur un defaut de provisionnement de machine, pas de code.
+      #
+      # ⛔ Etape dedoublee par systeme, et ce n'est pas du zele : **`unraid-windows` n'a pas Git
+      # Bash**, donc `shell: bash` y rend `bash: command not found`, alors que `office-windows`
+      # l'a. Les deux portent pourtant les memes etiquettes et se relaient sans prevenir : un
+      # workflow qui suppose bash sous Windows marche une fois sur deux, au hasard du runner.
+      - name: Chaine Rust (Unix)
+        if: matrix.nom != 'windows'
+        shell: bash
+        run: |
+          cargo --version
+          rustc --version
+          if command -v rustup >/dev/null 2>&1; then
+            rustup show
+          else
+            echo "::warning::rustup absent de ce runner."
+          fi
+
+      - name: Chaine Rust (Windows)
+        if: matrix.nom == 'windows'
+        shell: pwsh
+        run: |
+          cargo --version
+          rustc --version
+          if (Get-Command rustup -ErrorAction SilentlyContinue) {
+            rustup show
+          } else {
+            Write-Host "::warning::rustup absent de ce runner, a reinstaller a la main sur la machine."
+          }
+      - name: Dependances npm
+        run: npm ci
+
+      # ⛔ **Sans cette etape, rien ne compile sur un depot fraichement clone.**
+      # `src-tauri/moteur/` et `src-tauri/runtime/` sont ignores par git et produits par des
+      # scripts : le moteur embarque est telecharge et verifie depuis whisper.cpp, le runtime
+      # Visual C++ est recopie depuis le redistribuable. L'integration continue est restee rouge
+      # du 2026-09-17 au 2026-09-20 faute de ce raccordement, et dix-sept poussees se sont
+      # succede dessus sans que personne ne regarde.
+      #
+      # ⚠️ Windows SEULEMENT : Linux telecharge son moteur au premier usage, macOS n'en a aucun.
+      - name: Preparer le moteur embarque et le runtime (Windows)
+        if: matrix.nom == 'windows'
+        working-directory: .
+        run: |
+          python scripts/preparer-moteur-embarque.py
+          python scripts/preparer-runtime-vcpp.py
+
+      - name: Typage TypeScript et construction du frontend
+        # ⚠️ Doit passer AVANT cargo : `tauri::generate_context!` lit `frontendDist`, donc une
+        # compilation Rust sans `dist/` echoue sur une cause qui n'a rien de rust.
+        run: npm run build
+
+      # ── Rust ────────────────────────────────────────────────────────────────────────
+
+      - name: Formatage
+        # Le formatage ne depend pas de l'OS, une seule verification suffit.
+        if: matrix.nom == 'linux'
+        working-directory: src-tauri
+        run: cargo fmt --all --check
+
+      - name: Clippy
+        working-directory: src-tauri
+        run: cargo clippy --all-targets --all-features
+
+      - name: Tests
+        working-directory: src-tauri
+        run: cargo test --all-features
+
+      - name: Compilation en release
+        working-directory: src-tauri
+        run: cargo build --release

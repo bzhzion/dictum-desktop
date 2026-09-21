@@ -1,0 +1,8 @@
+{
+  "bundle": {
+    "resources": {
+      "moteur/*": "moteur/",
+      "runtime/*.dll": ""
+    }
+  }
+}

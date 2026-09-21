@@ -1,0 +1,11 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "Ce que l'interface a le droit de demander au coeur. Volontairement minimal : chaque permission ajoutee elargit ce qu'un script injecte dans la fenetre pourrait faire.",
+  "windows": ["main"],
+  "permissions": [
+    "core:default",
+    "core:window:allow-hide",
+    "core:window:allow-minimize"
+  ]
+}
