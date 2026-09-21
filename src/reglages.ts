@@ -65,10 +65,11 @@ type Champ =
 
 type Groupe = { titre: string; champs: Champ[] };
 
-// ⚠️ Cette liste EST l'inventaire des reglages. Elle reprend le contrat de fonctionnalites de
-// `docs/dictum-desktop.md`. Ce qui demande d'enumerer le systeme (liste des microphones, modeles
-// reellement telecharges) arrive a l'etape qui sait le faire : afficher une liste vide en
-// attendant serait pire que ne rien afficher.
+// ⚠️ Cette liste EST l'inventaire des reglages : elle fait autorite, et le test
+// `reglages_utilises` echoue si un reglage y apparait sans rien piloter. Ce qui demande
+// d'enumerer le systeme (liste des microphones, modeles reellement telecharges) n'y entre qu'une
+// fois le code capable de le faire : afficher une liste vide en attendant serait pire que ne rien
+// afficher.
 const GROUPES: Groupe[] = [
   {
     titre: 'Capture',

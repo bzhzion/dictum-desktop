@@ -5,7 +5,10 @@
 //! a pas UNE mais DEUX. Ce module isole ce choix pour que le reste du code ne connaisse jamais
 //! d'`#[cfg(windows)]` disperse.
 //!
-//! Voir `docs/dictum-desktop.md` du depot admin pour les sources de chaque affirmation.
+//! ⚠️ Le cas Linux est celui qui justifie ce module a lui seul : l'injection de texte n'y a pas
+//! une implementation mais deux, `libei` sous GNOME et KDE, et `zwp_virtual_keyboard_v1` sous
+//! Hyprland et les compositeurs wlroots, qui ne servent pas le portail `RemoteDesktop`. Le
+//! decouvrir apres avoir ecrit une injection Windows en dur couterait une reecriture.
 
 /// Famille de systeme, passee en parametre plutot que lue dans les `cfg!` afin que la logique de
 /// decision reste testable depuis n'importe quelle machine.

@@ -7,6 +7,36 @@ et ce projet adhere au [Semantic Versioning](https://semver.org/lang/fr/).
 
 ## [Unreleased]
 
+### Corrigé
+
+- ⛔ **Le README annonçait « étape 2 sur 13, le binaire ne dicte rien encore » sur un dépôt public
+  qui distribue une 0.1.1 qui dicte.** C'était la première phrase que lisait un visiteur, et elle
+  était fausse. Le dépôt est passé public sans que ce fichier soit touché.
+
+  Il est réécrit pour quelqu'un qui arrive de l'extérieur : ce que le logiciel fait, comment
+  l'installer sur les trois systèmes, ce qu'il ne fait pas, où les dictées sont écrites sur le
+  disque, et seulement ensuite la partie développement.
+
+- ⛔ **Sept endroits du dépôt public désignaient encore des documents d'un dépôt PRIVÉ comme source
+  d'autorité**, dont deux dans le code et trois dans les workflows. Un lecteur tombait sur une
+  référence qu'il ne pouvait pas suivre, et la structure interne fuyait sans aucun bénéfice. Le
+  README renvoyait en plus à un dépôt devenu privé et archivé.
+
+  Chaque explication a été rendue **autonome** : quand un choix technique mérite d'être justifié,
+  le raisonnement s'écrit sur place.
+
+### Ajouté
+
+- **`scripts/verifier-depot-public.py`, branché dans la CI et prouvé rouge.** Il refuse toute
+  référence à un dépôt privé dans les fichiers suivis par git, donc exactement ce qui est publié.
+
+  ⚠️ **Retirer ces références ne protège pas de leur retour, seul ce contrôle le fait** : elles
+  sont justes du point de vue de quelqu'un qui a les deux dépôts ouverts, et c'est précisément le
+  point de vue de celui qui écrit le commentaire. Le contrôle a d'ailleurs trouvé trois occurrences
+  que ma relecture avait manquées.
+
+
+
 ## [0.1.1] - 2026-09-21
 
 ### Added

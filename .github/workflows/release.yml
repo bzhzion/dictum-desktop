@@ -1,9 +1,9 @@
 # Publication sur tag, conformement a la convention du parc : rien ne se publie sur un push de
 # branche, un tag vX.Y.Z ou un declenchement manuel seulement.
 #
-# ⚠️ Runners GitHub : ce depot est PUBLIC, donc ils y sont gratuits. C'est la convention du parc
-# (voir docs/github-runners.md du depot admin) et l'inverse de ce que ce fichier a fait jusqu'au
-# 2026-09-21, quand le depot etait prive et que chaque minute etait facturee, macOS dix fois.
+# ⚠️ Runners GitHub : ce depot est PUBLIC, donc ils y sont gratuits. C'est l'inverse de ce que ce
+# fichier a fait jusqu'au 2026-09-21, quand le depot etait prive et que chaque minute etait
+# facturee, macOS au decuple.
 #
 # ⚠️ Plusieurs commentaires plus bas parlent encore de `unraid-windows`, `office-windows` ou
 # `macbook-arm64`, et de l'interdiction d'installer quoi que ce soit dessus. Cette regle reste
@@ -39,7 +39,7 @@ jobs:
     runs-on: ${{ matrix.runner }}
     strategy:
       fail-fast: false
-      #: Meme raison que dans ci.yml : depot public, runners GitHub gratuits.
+      # Meme raison que dans ci.yml : depot public, runners GitHub gratuits.
       matrix:
         include:
           - { nom: linux, cible: linux-x64, binaire: dictum, runner: ubuntu-latest }
@@ -430,10 +430,10 @@ jobs:
   # chaque version, et une **copie versionnee** qu'un gestionnaire de paquets peut epingler, sont
   # deux besoins qu'une release GitHub ne couvre ni l'un ni l'autre.
   #
-  # Motif transcrit de `hublot` (`release-windows.yml`), qui suit la convention de
-  # `docs/distribution.md` du depot admin. Trois formes d'URL qui ne servent pas a la meme chose :
-  # le nom fixe que le site lit, la copie versionnee qu'un gestionnaire de paquets epingle, et le
-  # manifeste qui evite de redeployer le site a chaque version.
+  # Trois formes d'URL qui ne servent pas a la meme chose, et les confondre est le piege : le
+  # **nom fixe** que le site lit et qu'on ecrase a chaque sortie, la **copie versionnee** qu'un
+  # gestionnaire de paquets epingle et qu'on n'ecrase JAMAIS, et le **manifeste** qui evite de
+  # redeployer le site a chaque version.
   #
   # ⚠️ **`aws s3` et pas `wrangler`** : les permissions R2 par bucket ne valent que pour l'API S3,
   # celle de wrangler exige une permission a l'echelle du COMPTE. Le jeton utilise ici est donc

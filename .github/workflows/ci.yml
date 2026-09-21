@@ -4,10 +4,9 @@
 # plusieurs milliers de lignes deja ecrites coute une semaine. L'ancienne version de Dictum a
 # livre sept versions mineures sans qu'aucun workflow ne compile seulement le projet.
 #
-# ⚠️ Runners GitHub : ce depot est PUBLIC depuis le 2026-09-21, donc ils y sont gratuits, comme
-# pour les autres depots publics du parc (noisecrypt, beammeup, hublot). Les depots prives
-# (hae-app, dictum-app) restent en self-hosted parce que leurs minutes sont facturees. Voir
-# docs/github-runners.md du depot admin.
+# ⚠️ Runners GitHub : ce depot est PUBLIC depuis le 2026-09-21, donc ils y sont gratuits. Ce
+# fichier a longtemps choisi des machines auto-hebergees, pour la seule raison qu'un depot prive
+# fait facturer chaque minute, macOS au decuple. La raison a disparu avec la visibilite.
 #
 # ⚠️ Comme dans release.yml, les commentaires qui nomment des machines maison decrivent une regle
 # toujours valable ailleurs, mais sans objet ici : un runner GitHub est jetable.
@@ -225,6 +224,18 @@ jobs:
         # ⚠️ Doit passer AVANT cargo : `tauri::generate_context!` lit `frontendDist`, donc une
         # compilation Rust sans `dist/` echoue sur une cause qui n'a rien de rust.
         run: npm run build
+
+      # ── Hygiene d'un depot public ───────────────────────────────────────────────────
+
+      # ⛔ Ce depot est public. Au moment de la bascule, SEPT endroits designaient encore des
+      # documents d'un depot prive comme source d'autorite, dont trois dans ces workflows : un
+      # lecteur tombait sur une reference qu'il ne pouvait pas suivre. Retirer ces references ne
+      # protege pas de leur retour, parce qu'elles sont justes du point de vue de celui qui a les
+      # deux depots ouverts, et c'est exactement le point de vue de celui qui ecrit le
+      # commentaire. Seul ce controle le protege.
+      - name: Aucune reference a un depot prive
+        if: matrix.nom == 'linux'
+        run: python3 scripts/verifier-depot-public.py
 
       # ── Rust ────────────────────────────────────────────────────────────────────────
 
