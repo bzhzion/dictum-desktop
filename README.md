@@ -54,7 +54,10 @@ macOS** : le binaire se compile et est publié, la dictée n'y est pas implémen
 - Raccourci clavier global, deux bips de début et de fin, icône de zone de notification.
 - Mise en forme du français, et substitutions définies par l'utilisateur.
 - Français, anglais, ou détection automatique. Pas davantage pour l'instant.
-- Historique local dont la taille est réglable, et peut valoir zéro.
+- **Historique désactivé par défaut** : rien de ce qui est dicté n'est écrit nulle part tant que
+  l'utilisateur ne l'active pas, et remettre le réglage à zéro efface ce qui avait été gardé. Il
+  valait 20 jusqu'au 2026-09-18 : l'historique contient ce que quelqu'un a dit à voix haute chez
+  lui, donc il s'active à la demande et jamais par défaut.
 
 Ce que le logiciel **ne** fait pas : pas de transcription en continu, pas de reformulation par un
 modèle de langue, pas d'API HTTP locale, pas d'extension d'éditeur. Une première version du projet

@@ -474,6 +474,34 @@ mod tests {
         assert_eq!(avant, apres);
     }
 
+    /// ⛔ **L'historique est desactive par defaut, et ce test existe pour que ca le reste.**
+    ///
+    /// Il contient le texte de ce que quelqu'un a dit a voix haute chez lui, souvent dans
+    /// l'exercice d'une profession tenue au secret : il s'active a la demande et jamais par
+    /// defaut. Il valait 20 jusqu'au 2026-09-18.
+    ///
+    /// ⚠️ Sans ce test, remettre une valeur « serviable » ne casse RIEN : l'application marche
+    /// mieux du point de vue de celui qui fait le changement, et le defaut de confidentialite ne
+    /// se voit nulle part. C'est exactement le genre de regression qu'aucune relecture n'attrape,
+    /// parce qu'elle ressemble a une amelioration.
+    #[test]
+    fn l_historique_est_desactive_par_defaut() {
+        assert_eq!(
+            Reglages::default().taille_historique,
+            0,
+            "l'historique doit valoir zero par defaut : il contient ce que l'utilisateur a dit"
+        );
+
+        // Et la normalisation ne doit pas le relever en douce, comme elle le faisait quand la
+        // borne basse valait 1 : le reglage acceptait 0 a l'ecriture et le coeur le ramenait a 1.
+        let mut par_defaut = Reglages::default();
+        par_defaut.normaliser();
+        assert_eq!(
+            par_defaut.taille_historique, 0,
+            "normaliser() ne doit pas remonter un historique desactive"
+        );
+    }
+
     /// ⚠️ Le fichier est modifiable a la main : son contenu est une entree non fiable.
     #[test]
     fn les_valeurs_hors_domaine_sont_ramenees_dans_leurs_bornes() {

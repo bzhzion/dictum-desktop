@@ -7,7 +7,25 @@ et ce projet adhere au [Semantic Versioning](https://semver.org/lang/fr/).
 
 ## [Unreleased]
 
+### Ajouté
+
+- **Un test qui garde l'historique désactivé par défaut**, `l_historique_est_desactive_par_defaut`,
+  **prouvé rouge** en remettant la valeur de 20 qui avait cours jusqu'au 2026-09-18.
+
+  ⛔ **Le défaut était déjà à zéro depuis le 2026-09-18, mais rien ne le protégeait.** Sans ce
+  test, remettre une valeur « serviable » ne casse rien : l'application marche mieux du point de
+  vue de celui qui fait le changement, et le défaut de confidentialité ne se voit nulle part. C'est
+  exactement le genre de régression qu'aucune relecture n'attrape, parce qu'elle ressemble à une
+  amélioration. Le test vérifie aussi que `normaliser()` ne le relève pas en douce, comme il le
+  faisait quand la borne basse valait 1.
+
 ### Corrigé
+
+- **Le README laissait entendre que l'historique conserve par défaut**, alors que c'est l'inverse.
+  L'inexactitude allait dans le sens qui nous dessert : rien n'est écrit tant que l'utilisateur ne
+  l'active pas, et c'est un bien meilleur argument que ce qui était écrit.
+
+
 
 - ⛔ **Le README annonçait « étape 2 sur 13, le binaire ne dicte rien encore » sur un dépôt public
   qui distribue une 0.1.1 qui dicte.** C'était la première phrase que lisait un visiteur, et elle
