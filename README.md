@@ -52,7 +52,11 @@ macOS** : le binaire se compile et est publié, la dictée n'y est pas implémen
   passe, application élevée), avec un message qui dit quoi faire plutôt qu'une dictée perdue en
   silence.
 - Raccourci clavier global, deux bips de début et de fin, icône de zone de notification.
-- Mise en forme du français, et substitutions définies par l'utilisateur.
+- **Un vocabulaire donné à la reconnaissance AVANT qu'elle transcrive** : noms propres, termes de
+  métier, acronymes. C'est un biais souple et non une correction après coup, donc **rien ne peut
+  être remplacé de travers**. Les substitutions, elles, sont exactes et s'appliquent après : ce
+  sont deux fonctions distinctes, et les confondre est l'erreur à ne pas faire.
+- Mise en forme du français.
 - Français, anglais, ou détection automatique. Pas davantage pour l'instant.
 - **Historique désactivé par défaut** : rien de ce qui est dicté n'est écrit nulle part tant que
   l'utilisateur ne l'active pas, et remettre le réglage à zéro efface ce qui avait été gardé. Il

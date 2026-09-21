@@ -7,6 +7,51 @@ et ce projet adhere au [Semantic Versioning](https://semver.org/lang/fr/).
 
 ## [Unreleased]
 
+### Added
+
+- **Un vocabulaire donné au moteur AVANT la transcription** (`vocabulary` dans les réglages, une
+  zone de texte à raison d'un terme par ligne). Les termes partent en `--prompt` avec
+  `--carry-initial-prompt`, pour que la reconnaissance écrive du premier coup les noms propres et
+  les termes de métier qu'elle écorche.
+
+  ⛔ **Ce n'est PAS une liste de substitutions, et les confondre était l'erreur que j'allais
+  faire.** Une substitution corrige le texte après coup, de façon exacte et sans discernement ; le
+  vocabulaire est un **biais souple** appliqué avant, donc **rien ne peut être remplacé de
+  travers**. Les deux blocs de l'écran sont présentés dans l'ordre du traitement pour que la
+  différence se voie.
+
+  ✅ **Recette reprise de `teelap/local-dictation`**, qui la sépare en trois couches (indices de
+  décodage, puis passe floue, puis remplacements littéraux) là où j'allais greffer une correction
+  approximative sur les substitutions existantes. painteau a demandé de regarder ce que font les
+  projets existants avant d'écrire : c'était le bon réflexe, et c'est une leçon du parc que je
+  n'avais pas appliquée.
+
+  ⚠️ **La correction approximative après coup est délibérément remise à plus tard**, et cet ordre
+  est l'apport principal de l'étude : la couche de biais ne peut pas se tromper, donc elle se
+  livre sans risque et on mesure ensuite ce qu'il reste à réparer. La faire d'abord aurait fait
+  payer le coût de Beider-Morse et de ses fichiers de règles sans savoir s'il se justifie.
+
+  ⛔ **`--carry-initial-prompt` n'est pas optionnel** : sans lui le prompt ne vaut que pour la
+  première fenêtre de trente secondes, donc le vocabulaire se perdrait en cours de route et le
+  défaut n'apparaîtrait que sur les longues dictées, rarement et sans rapport apparent avec la
+  longueur.
+
+  ✅ **Vérifié avant d'écrire la fonction : le prompt ne fuit pas dans la sortie**, testé sur du
+  silence absolu, du bruit très faible et un sinus audible avec le modèle Small. C'était le risque
+  à lever : voir la liste de ses patients apparaître dans un compte rendu serait un défaut
+  inacceptable. ⚠️ Le prompt change en revanche **ce qui** est halluciné sur du non-parlé, les
+  trois cas rendant « L'Ontario » au lieu de « ... », ce qui confirme l'utilité du seuil de silence
+  qui empêche d'envoyer au moteur un enregistrement sans parole.
+
+  ⚠️ **Le plafond de 600 caractères est un substitut assumé** : le moteur compte en jetons et on ne
+  peut pas les compter sans embarquer son tokeniseur. La pratique documentée est qu'au-delà
+  d'environ 200 jetons un prompt dégrade la transcription au lieu de l'aider. **La troncature tombe
+  entre deux entrées, jamais au milieu d'un mot** (prouvé rouge par mutation) : un prompt coupé sur
+  « Kowal » biaiserait le moteur vers un fragment inexistant, ce qui est pire que de ne pas donner
+  l'entrée.
+
+
+
 ### Ajouté
 
 - **Un test qui garde l'historique désactivé par défaut**, `l_historique_est_desactive_par_defaut`,

@@ -225,3 +225,81 @@ export async function brancherHistorique(): Promise<void> {
 export async function rafraichirApresEnregistrement(_courants: Reglages): Promise<void> {
   await brancherHistorique();
 }
+
+/**
+ * Le vocabulaire, une zone de texte a raison d'un terme par ligne.
+ *
+ * ⛔ **Ce n'est pas une liste de substitutions, et l'ecran doit le dire.** Une substitution
+ * corrige le texte APRES coup, de facon exacte. Le vocabulaire est donne au moteur AVANT la
+ * transcription pour qu'il se trompe moins : c'est un biais, donc rien ne peut etre remplace a
+ * tort. Les deux blocs sont presentes dans l'ordre du traitement pour que la difference se voie.
+ *
+ * ⚠️ Une zone de texte plutot qu'une ligne par entree comme les substitutions : une entree de
+ * vocabulaire est un seul mot, donc un champ par mot ferait vingt champs a remplir la ou un
+ * copier-coller d'une liste suffit.
+ */
+export function brancherVocabulaire(
+  lire: () => string[],
+  ecrire: (liste: string[]) => Promise<void>,
+): void {
+  const hote = document.getElementById('vocabulaire');
+  if (!hote) return;
+
+  hote.replaceChildren();
+
+  const groupe = document.createElement('fieldset');
+  groupe.className = 'groupe';
+  const titre = document.createElement('legend');
+  titre.textContent = 'Vocabulaire';
+  groupe.append(titre);
+
+  const aide = document.createElement('p');
+  aide.className = 'reglage-aide';
+  aide.textContent =
+    'Un terme par ligne : noms propres, termes de votre métier, acronymes. Ils sont donnés à la reconnaissance vocale avant qu’elle transcrive, pour qu’elle les écrive correctement du premier coup. Rien n’est remplacé après coup, donc un terme d’ici ne peut pas corriger de travers.';
+  groupe.append(aide);
+
+  const zone = document.createElement('textarea');
+  zone.id = 'vocabulaire-liste';
+  zone.rows = 6;
+  zone.spellcheck = false;
+  zone.value = lire().join('\n');
+  zone.placeholder = 'Kowalczyk\nLévothyrox\nVilleurbanne';
+  zone.setAttribute('aria-label', 'Vocabulaire, un terme par ligne');
+
+  const compte = document.createElement('p');
+  compte.className = 'reglage-aide';
+  const majCompte = (liste: string[]): void => {
+    // ⚠️ On dit le PLAFOND et pas seulement le compte : le coeur ecarte les termes au-dela d'une
+    // longueur totale, et l'apprendre par une transcription qui n'a pas marche serait pire.
+    const caracteres = liste.join(', ').length;
+    compte.textContent =
+      liste.length === 0
+        ? 'Aucun terme. La reconnaissance fonctionne normalement.'
+        : `${liste.length} terme${liste.length > 1 ? 's' : ''}, ${caracteres} caractères sur 600 utilisés.` +
+          (caracteres > 600 ? ' Les termes au-delà seront ignorés.' : '');
+  };
+  majCompte(lire());
+
+  const decouper = (brut: string): string[] =>
+    brut
+      .split('\n')
+      .map((ligne) => ligne.trim())
+      .filter((ligne) => ligne.length > 0);
+
+  zone.addEventListener('input', () => majCompte(decouper(zone.value)));
+  zone.addEventListener('change', () => {
+    const liste = decouper(zone.value);
+    majCompte(liste);
+    // ⚠️ Comme le reste de cet ecran, on enregistre a la perte du focus et pas derriere un bouton
+    // « Appliquer » : deux facons d'enregistrer dans un meme ecran font perdre une saisie.
+    void ecrire(liste).then(() => {
+      // On reecrit la zone depuis la liste retenue, pour que l'utilisateur VOIE ce qui a ete
+      // garde : les lignes vides et les espaces disparaissent, et le silence serait trompeur.
+      zone.value = liste.join('\n');
+    });
+  });
+
+  groupe.append(zone, compte);
+  hote.append(groupe);
+}

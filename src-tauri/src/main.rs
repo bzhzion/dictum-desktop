@@ -231,6 +231,7 @@ fn transcrire(demande: &Demandetranscription) -> Result<(), String> {
         &langue,
         reglages.fils,
         reglages.temperature,
+        moteur::prompt_de_vocabulaire(&reglages.vocabulaire).as_deref(),
     )?;
 
     match &demande.sortie {

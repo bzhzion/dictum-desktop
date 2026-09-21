@@ -11,7 +11,7 @@
 
 import { invoke } from '@tauri-apps/api/core';
 
-import { brancherHistorique, brancherSubstitutions } from './texte';
+import { brancherHistorique, brancherSubstitutions, brancherVocabulaire } from './texte';
 
 /**
  * Un remplacement automatique.
@@ -46,6 +46,7 @@ export type Reglages = {
   french_typography: boolean;
   copy_to_clipboard: boolean;
   substitutions: Substitution[];
+  vocabulary: string[];
 
   notifications: boolean;
   history_size: number;
@@ -612,7 +613,15 @@ export async function brancherReglages(): Promise<void> {
     console.error('chemin_reglages', erreur);
   }
 
-  // Les deux listes, après les champs simples : elles lisent l'état déjà chargé.
+  // Les listes, après les champs simples : elles lisent l'état déjà chargé.
+  brancherVocabulaire(
+    () => courants?.vocabulary ?? [],
+    async (liste) => {
+      if (!courants) return;
+      courants.vocabulary = liste;
+      await enregistrer();
+    },
+  );
   brancherSubstitutions(
     () => courants?.substitutions ?? [],
     async (liste) => {

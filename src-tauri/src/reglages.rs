@@ -137,6 +137,20 @@ pub struct Reglages {
     #[serde(rename = "substitutions")]
     pub substitutions: Vec<crate::texte::Substitution>,
 
+    /// Mots que le moteur risque de mal entendre : noms propres, termes de metier, acronymes.
+    ///
+    /// ⛔ **Ce n'est pas une liste de substitutions, et les confondre serait l'erreur.** Une
+    /// substitution corrige le texte APRES coup, de façon exacte et sans discernement. Ce
+    /// vocabulaire est donne au moteur AVANT la transcription, pour qu'il se trompe moins : c'est
+    /// un biais souple, donc rien ne peut etre remplace a tort. Les projets qui font ça le mieux
+    /// separent nettement les deux, et c'est ce qu'on reprend.
+    ///
+    /// ⚠️ Il n'y a pas de correction approximative apres coup pour l'instant, et c'est
+    /// deliberement remis a plus tard : on mesure d'abord ce que ce biais suffit a corriger. Sur
+    /// un public tenu au secret, une correction fausse coute plus qu'une correction manquee.
+    #[serde(rename = "vocabulary", default)]
+    pub vocabulaire: Vec<String>,
+
     // Interface
     #[serde(rename = "notifications")]
     pub notifications: bool,
@@ -196,6 +210,7 @@ impl Default for Reglages {
             typographie_francaise: true,
             copier_presse_papiers: false,
             substitutions: Vec::new(),
+            vocabulaire: Vec::new(),
 
             notifications: true,
             // ⛔ **Zero, donc desactive.** L'historique contient ce que quelqu'un a dit a voix

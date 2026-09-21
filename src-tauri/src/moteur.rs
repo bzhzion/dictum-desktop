@@ -946,6 +946,10 @@ pub fn transcrire(
     // ⚠️ 0 garde le moteur au plus pres de ce qu'il a entendu. Au-dela il s'autorise a deviner
     // quand il hesite, ce qui rend un texte plus fluide et moins fidele.
     temperature: f32,
+    // Vocabulaire de l'utilisateur, deja mis en forme par `prompt_de_vocabulaire`. `None` quand
+    // il n'y en a pas : on ne passe alors PAS de `--prompt` du tout, plutot qu'un prompt vide,
+    // qui compterait quand meme comme contexte.
+    prompt: Option<&str>,
 ) -> Result<Transcription, String> {
     if !executable.is_file() {
         return Err("The transcription engine is not installed.".to_string());
@@ -958,7 +962,8 @@ pub fn transcrire(
     }
 
     let debut = std::time::Instant::now();
-    let sortie = commande(executable)
+    let mut commande = commande(executable);
+    commande
         .arg("-m")
         .arg(modele)
         .arg("-f")
@@ -971,7 +976,20 @@ pub fn transcrire(
         .arg(temperature.to_string())
         // Sans horodatage : on veut du texte a taper, pas un fichier de sous-titres.
         .arg("--no-timestamps")
-        .arg("--no-prints")
+        .arg("--no-prints");
+
+    if let Some(vocabulaire) = prompt {
+        // ⛔ `--carry-initial-prompt` n'est pas optionnel ici. Sans lui, le prompt ne vaut que
+        // pour la PREMIERE fenetre de trente secondes : une dictee plus longue perdrait le
+        // vocabulaire en cours de route, et le defaut se manifesterait uniquement sur les longues
+        // dictees, donc rarement et sans rapport apparent avec la longueur.
+        commande
+            .arg("--prompt")
+            .arg(vocabulaire)
+            .arg("--carry-initial-prompt");
+    }
+
+    let sortie = commande
         .output()
         .map_err(|erreur| format!("Engine could not be started: {erreur}"))?;
 
@@ -985,6 +1003,56 @@ pub fn transcrire(
         texte: nettoyer(&String::from_utf8_lossy(&sortie.stdout)),
         secondes: debut.elapsed().as_secs_f64(),
     })
+}
+
+/// Plafond du prompt de vocabulaire, en caracteres.
+///
+/// ⚠️ **C'est un substitut, et il est volontairement prudent.** Le moteur compte en JETONS, pas en
+/// caracteres, et on ne peut pas les compter ici sans embarquer son tokeniseur. La pratique
+/// documentee est qu'au-dela d'environ 200 jetons le prompt degrade la transcription au lieu de
+/// l'aider, en disputant le budget de contexte au texte a transcrire. A environ quatre caracteres
+/// par jeton en francais, 600 caracteres restent sous cette barre avec de la marge.
+const PLAFOND_PROMPT: usize = 600;
+
+/// Construit le prompt de vocabulaire a donner au moteur, ou `None` s'il n'y a rien a donner.
+///
+/// Le principe, repris des projets qui le font le mieux : plutot que de corriger le texte APRES,
+/// on donne au moteur les mots qu'il risque de mal entendre AVANT, pour qu'il se trompe moins.
+/// C'est un **biais souple** et non une contrainte : si l'acoustique dit autre chose, le moteur
+/// ecrit autre chose. Rien ne peut donc etre remplace a tort, contrairement a une correction
+/// appliquee apres coup.
+///
+/// ⛔ **La troncature se fait a la frontiere d'une entree, jamais au milieu d'un mot.** Un prompt
+/// coupe sur « Kowal » biaiserait le moteur vers un fragment qui n'existe pas, ce qui est pire que
+/// de ne pas donner l'entree du tout.
+///
+/// ⚠️ **Verifie le 2026-09-21 : le prompt ne FUIT pas dans la sortie**, meme sur du quasi-silence,
+/// ou le moteur hallucine le plus. C'etait le risque a lever avant d'ecrire cette fonction : voir
+/// la liste de ses patients apparaitre dans un compte rendu serait un defaut inacceptable. Le
+/// prompt change en revanche CE QUI est hallucine sur du non-parle, d'ou l'importance du seuil de
+/// silence qui empeche d'envoyer au moteur un enregistrement sans parole.
+pub fn prompt_de_vocabulaire(entrees: &[String]) -> Option<String> {
+    let mut gardees: Vec<&str> = Vec::new();
+    let mut longueur = 0;
+
+    for entree in entrees {
+        let terme = entree.trim();
+        if terme.is_empty() {
+            continue;
+        }
+        // 2 caracteres pour le separateur « , », compte seulement a partir de la deuxieme entree.
+        let cout = terme.chars().count() + if gardees.is_empty() { 0 } else { 2 };
+        if longueur + cout > PLAFOND_PROMPT {
+            break;
+        }
+        longueur += cout;
+        gardees.push(terme);
+    }
+
+    if gardees.is_empty() {
+        return None;
+    }
+    Some(gardees.join(", "))
 }
 
 /// Met la sortie du moteur en forme de texte dicte.
@@ -1265,6 +1333,104 @@ mod tests {
                 porte_une_version,
                 "{} : « {nom} » est un nom fixe, il serait ecrase a la prochaine version",
                 moteur.identifiant
+            );
+        }
+    }
+
+    // ── Le prompt de vocabulaire ───────────────────────────────────────────────────────────
+
+    fn mots(nombre: usize, longueur: usize) -> Vec<String> {
+        (0..nombre)
+            .map(|i| format!("{}{i:03}", "x".repeat(longueur - 3)))
+            .collect()
+    }
+
+    /// ⚠️ `None` et non une chaine vide : on ne veut pas passer `--prompt ""` au moteur, qui le
+    /// compterait quand meme comme du contexte.
+    #[test]
+    fn un_vocabulaire_vide_ne_donne_aucun_prompt() {
+        assert_eq!(prompt_de_vocabulaire(&[]), None);
+        assert_eq!(prompt_de_vocabulaire(&["".to_string()]), None);
+        assert_eq!(
+            prompt_de_vocabulaire(&["   ".to_string(), "\t".to_string()]),
+            None
+        );
+    }
+
+    #[test]
+    fn les_entrees_sont_jointes_et_debarrassees_de_leurs_espaces() {
+        let entrees = vec![
+            "  Kowalczyk ".to_string(),
+            "Lévothyrox".to_string(),
+            "".to_string(),
+            " Villeurbanne".to_string(),
+        ];
+        assert_eq!(
+            prompt_de_vocabulaire(&entrees).as_deref(),
+            Some("Kowalczyk, Lévothyrox, Villeurbanne")
+        );
+    }
+
+    /// ⛔ Le point qui compte : la troncature tombe entre deux entrees, jamais au milieu d'un mot.
+    /// Un prompt coupe sur « Kowal » biaiserait le moteur vers un fragment inexistant, ce qui est
+    /// pire que de ne pas donner l'entree.
+    #[test]
+    fn le_plafond_tronque_a_la_frontiere_d_une_entree() {
+        // Des mots de 20 caracteres : 30 entrees depassent largement les 600 caracteres.
+        let entrees = mots(30, 20);
+        let prompt = prompt_de_vocabulaire(&entrees).expect("un prompt est attendu");
+
+        assert!(
+            prompt.chars().count() <= PLAFOND_PROMPT,
+            "prompt de {} caracteres, au-dela du plafond de {PLAFOND_PROMPT}",
+            prompt.chars().count()
+        );
+
+        // Chaque morceau garde doit etre une entree ENTIERE de la liste d'origine.
+        for morceau in prompt.split(", ") {
+            assert!(
+                entrees.iter().any(|e| e == morceau),
+                "« {morceau} » n'est pas une entree complete : la coupe est tombee dans un mot"
+            );
+        }
+
+        // Et on garde bien le debut de la liste, pas une poignee au hasard.
+        assert!(
+            prompt.starts_with(&entrees[0]),
+            "la premiere entree doit etre gardee"
+        );
+    }
+
+    /// Une seule entree plus longue que le plafond ne doit pas etre coupee en deux : on n'en
+    /// garde aucune, et on le dit par `None` plutot que par un fragment.
+    #[test]
+    fn une_entree_plus_longue_que_le_plafond_est_ecartee_entierement() {
+        let enorme = "y".repeat(PLAFOND_PROMPT + 1);
+        assert_eq!(prompt_de_vocabulaire(&[enorme]), None);
+    }
+
+    /// Le plafond ne doit pas ecarter une liste raisonnable : le cas reel est une poignee de noms
+    /// propres, et il doit passer en entier.
+    #[test]
+    fn un_vocabulaire_de_taille_realiste_passe_en_entier() {
+        let entrees: Vec<String> = [
+            "Kowalczyk",
+            "Lévothyrox",
+            "Villeurbanne",
+            "Breizhzion",
+            "Oliveira",
+            "amoxicilline",
+            "Bodhrán",
+            "Szczepański",
+        ]
+        .iter()
+        .map(|s| s.to_string())
+        .collect();
+        let prompt = prompt_de_vocabulaire(&entrees).expect("un prompt est attendu");
+        for entree in &entrees {
+            assert!(
+                prompt.contains(entree.as_str()),
+                "« {entree} » a ete ecartee a tort"
             );
         }
     }

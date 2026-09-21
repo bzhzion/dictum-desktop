@@ -313,6 +313,7 @@ fn transcrire_et_ecrire(
         &reglages.langue,
         reglages.fils,
         reglages.temperature,
+        moteur::prompt_de_vocabulaire(&reglages.vocabulaire).as_deref(),
     );
     let _ = std::fs::remove_file(&audio_fichier);
     let transcription = transcription?;
