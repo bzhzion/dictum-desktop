@@ -1055,6 +1055,79 @@ pub fn prompt_de_vocabulaire(entrees: &[String]) -> Option<String> {
     Some(gardees.join(", "))
 }
 
+/// Nombre de mots au-dela duquel une cible de substitution n'est plus un terme de vocabulaire.
+const MOTS_MAX_TERME: usize = 3;
+
+/// Longueur au-dela de laquelle une cible de substitution n'est plus un terme de vocabulaire.
+const LONGUEUR_MAX_TERME: usize = 40;
+
+/// Recolte, parmi les substitutions de l'utilisateur, celles qui sont aussi du vocabulaire.
+///
+/// ⛔ **Le signal utile n'est PAS la sortie du moteur, et c'est tout l'enjeu de cette fonction.**
+/// Collecter le vocabulaire depuis le texte transcrit serait circulaire : la sortie ne contient
+/// que ce que le moteur a deja su ecrire, alors que les termes qui ont besoin d'aide sont
+/// exactement ceux qui n'y apparaissent jamais. On renforcerait donc precisement le cas qui n'en
+/// a pas besoin.
+///
+/// La cible d'une substitution, elle, est non circulaire : c'est un mot que l'utilisateur a du
+/// corriger a la main, donc un mot que le moteur s'est trompe a ecrire. C'est la meilleure liste
+/// de ses erreurs dont on dispose, et elle est deja dans les reglages.
+///
+/// ⚠️ **Le filtre est volontairement prudent, et l'asymetrie des echecs le justifie.** Oublier un
+/// terme ne coute RIEN : la substitution continue de corriger le texte apres coup, comme avant.
+/// Retenir a tort une tournure de ponctuation, en revanche, mange le plafond du prompt et biaise
+/// le moteur vers une expression que personne n'a prononcee. Entre les deux, on rate.
+///
+/// D'ou les trois criteres : au plus [`MOTS_MAX_TERME`] mots, au plus [`LONGUEUR_MAX_TERME`]
+/// caracteres, et **au moins une majuscule**, qui est ce qui distingue un nom propre, un acronyme
+/// ou un nom de marque d'une correction de tournure comme « n'est-ce pas ? ».
+pub fn termes_des_substitutions(substitutions: &[crate::texte::Substitution]) -> Vec<String> {
+    substitutions
+        .iter()
+        .map(|substitution| substitution.remplace.trim())
+        .filter(|terme| !terme.is_empty())
+        .filter(|terme| terme.chars().count() <= LONGUEUR_MAX_TERME)
+        .filter(|terme| terme.split_whitespace().count() <= MOTS_MAX_TERME)
+        .filter(|terme| terme.chars().any(char::is_uppercase))
+        .map(str::to_string)
+        .collect()
+}
+
+/// Le prompt de vocabulaire a donner au moteur pour ces reglages, ou `None` s'il n'y a rien.
+///
+/// ⛔ **C'est le SEUL point d'entree, et c'est voulu.** La fusion entre le vocabulaire saisi et
+/// celui deduit des substitutions ne doit pas vivre chez les appelants : il y en a deja deux, la
+/// dictee et la ligne de commande, et un troisieme oublierait la moitie du vocabulaire sans que
+/// rien ne vire au rouge. Meme famille que le repli branche ecran par ecran : pose dans la
+/// fonction partagee, il ne peut plus etre oublie par personne.
+///
+/// ⚠️ **L'ordre decide de ce qui survit a la troncature.** Le vocabulaire saisi passe en premier
+/// parce que l'utilisateur l'a ecrit deliberement ; les termes deduits comblent ce qui reste sous
+/// le plafond. L'inverse ferait tomber une liste choisie a la main au profit d'un sous-produit.
+pub fn prompt_des_reglages(reglages: &crate::reglages::Reglages) -> Option<String> {
+    let mut entrees: Vec<String> = Vec::new();
+    let mut vues: std::collections::HashSet<String> = std::collections::HashSet::new();
+
+    for terme in reglages
+        .vocabulaire
+        .iter()
+        .cloned()
+        .chain(termes_des_substitutions(&reglages.substitutions))
+    {
+        let propre = terme.trim();
+        if propre.is_empty() {
+            continue;
+        }
+        // Sans casse : « ECG » saisi a la main et « ECG » deduit d'une substitution sont le meme
+        // terme, et le donner deux fois au moteur gaspillerait le plafond.
+        if vues.insert(propre.to_lowercase()) {
+            entrees.push(propre.to_string());
+        }
+    }
+
+    prompt_de_vocabulaire(&entrees)
+}
+
 /// Met la sortie du moteur en forme de texte dicte.
 ///
 /// ⚠️ Le moteur rend un segment par ligne avec une espace de tete. Recolle tel quel, le texte
@@ -1433,5 +1506,85 @@ mod tests {
                 "« {entree} » a ete ecartee a tort"
             );
         }
+    }
+
+    // ── Le vocabulaire deduit des substitutions ────────────────────────────────────────────
+
+    fn substitution(cherche: &str, remplace: &str) -> crate::texte::Substitution {
+        crate::texte::Substitution {
+            cherche: cherche.to_string(),
+            remplace: remplace.to_string(),
+            sensible_casse: false,
+        }
+    }
+
+    /// Le cas qui justifie toute la fonction : l'utilisateur a du corriger un nom a la main, donc
+    /// le moteur s'est trompe dessus, donc c'est exactement ce qu'il faut lui donner avant.
+    #[test]
+    fn une_cible_de_substitution_qui_est_un_nom_devient_du_vocabulaire() {
+        let termes = termes_des_substitutions(&[
+            substitution("lévotirox", "Lévothyrox"),
+            substitution("e c g", "ECG"),
+            substitution("mac kenzie", "McKenzie"),
+        ]);
+        assert_eq!(termes, vec!["Lévothyrox", "ECG", "McKenzie"]);
+    }
+
+    /// ⛔ Le contre-cas, et c'est lui qui protege la transcription : une substitution de tournure
+    /// ou de ponctuation n'est pas du vocabulaire. La retenir mangerait le plafond du prompt et
+    /// biaiserait le moteur vers une expression que personne n'a prononcee.
+    #[test]
+    fn une_correction_de_tournure_ne_devient_pas_du_vocabulaire() {
+        let termes = termes_des_substitutions(&[
+            // Aucune majuscule : une tournure, pas un terme.
+            substitution("nest ce pas", "n'est-ce pas ?"),
+            substitution("cad", "c'est-à-dire"),
+            // Une majuscule, mais bien trop de mots pour etre un terme.
+            substitution("formule", "Je vous prie d'agréer mes salutations distinguées"),
+            // Une majuscule, peu de mots, mais trop long.
+            substitution("long", &format!("A{}", "z".repeat(LONGUEUR_MAX_TERME))),
+            // Vide apres nettoyage.
+            substitution("rien", "   "),
+        ]);
+        assert!(
+            termes.is_empty(),
+            "des tournures ont ete prises pour du vocabulaire : {termes:?}"
+        );
+    }
+
+    /// ⚠️ L'ordre decide de ce qui survit a la troncature : ce que l'utilisateur a saisi passe
+    /// devant ce qu'on a deduit pour lui.
+    #[test]
+    fn le_vocabulaire_saisi_passe_avant_les_termes_deduits() {
+        let mut reglages = crate::reglages::Reglages::default();
+        reglages.vocabulaire = vec!["Szczepański".to_string()];
+        reglages.substitutions = vec![substitution("lévotirox", "Lévothyrox")];
+
+        let prompt = prompt_des_reglages(&reglages).expect("un prompt est attendu");
+        assert_eq!(prompt, "Szczepański, Lévothyrox");
+    }
+
+    /// Donner deux fois le meme terme au moteur gaspillerait le plafond pour rien.
+    #[test]
+    fn un_terme_present_des_deux_cotes_n_est_donne_qu_une_fois() {
+        let mut reglages = crate::reglages::Reglages::default();
+        reglages.vocabulaire = vec!["ECG".to_string()];
+        // ⚠️ « Ecg » porte une majuscule, donc il PASSE le filtre et atteint bien la
+        // deduplication. Une cible en minuscules aurait ete ecartee avant, et le test aurait ete
+        // vert sans jamais exercer ce qu'il pretend garder.
+        reglages.substitutions = vec![substitution("e c g", "Ecg")];
+
+        let prompt = prompt_des_reglages(&reglages).expect("un prompt est attendu");
+        assert_eq!(prompt, "ECG");
+    }
+
+    /// Des reglages neufs ne donnent aucun prompt : l'historique est a zero, le vocabulaire aussi,
+    /// et le moteur ne doit recevoir aucune option supplementaire.
+    #[test]
+    fn des_reglages_par_defaut_ne_donnent_aucun_prompt() {
+        assert_eq!(
+            prompt_des_reglages(&crate::reglages::Reglages::default()),
+            None
+        );
     }
 }

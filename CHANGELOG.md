@@ -9,6 +9,48 @@ et ce projet adhere au [Semantic Versioning](https://semver.org/lang/fr/).
 
 ### Added
 
+- **Le vocabulaire se remplit tout seul depuis les substitutions.** La cible d'une substitution,
+  quand elle ressemble à un terme et non à une tournure, est donnée au moteur avant la
+  transcription au même titre que le vocabulaire saisi à la main.
+
+  ⛔ **Le signal utile n'est PAS la sortie du moteur, et c'est tout l'arbitrage.** L'idée de
+  départ était de récolter les acronymes et les mots à casse mixte dans le texte transcrit. C'est
+  **circulaire** : la sortie ne contient que ce que le moteur a déjà su écrire, alors que les
+  termes qui ont besoin d'aide sont exactement ceux qui n'y apparaissent jamais. On aurait
+  renforcé précisément le cas qui n'en a pas besoin. La cible d'une substitution, elle, est un mot
+  que l'utilisateur a dû corriger à la main : c'est la meilleure liste des erreurs du moteur dont
+  on dispose, elle est non circulaire, et elle était déjà dans les réglages.
+
+  ⚠️ **Le filtre est volontairement prudent, et l'asymétrie des échecs le justifie.** Oublier un
+  terme ne coûte **rien** : la substitution continue de corriger le texte après coup, exactement
+  comme avant. Retenir à tort une tournure de ponctuation mange le budget du prompt et biaise le
+  moteur vers une expression que personne n'a prononcée. Entre les deux, on rate. D'où les trois
+  critères : au plus trois mots, au plus quarante caractères, et **au moins une majuscule**, qui
+  est ce qui sépare `Lévothyrox` ou `ECG` de `n'est-ce pas ?`.
+
+  ⛔ **La fusion vit dans UN point d'entrée, `prompt_des_reglages`, et pas chez les appelants.**
+  Il y en avait deux, la dictée et la ligne de commande, et un troisième aurait oublié la moitié
+  du vocabulaire sans que rien ne vire au rouge. Même famille que le repli branché écran par
+  écran : posé dans la fonction partagée, il ne peut plus être oublié par personne.
+
+  ⚠️ **L'ordre décide de ce qui survit à la troncature** : le vocabulaire saisi passe devant, les
+  termes déduits comblent ce qui reste sous le plafond. L'inverse ferait tomber une liste choisie
+  à la main au profit d'un sous-produit.
+
+  ✅ Trois tests, chacun **prouvé rouge par mutation** : filtre des majuscules retiré, ordre
+  inversé, déduplication retirée.
+
+### Changed
+
+- **Le compteur du vocabulaire ne prétend plus compter ce qu'il ne compte pas.** Il annonçait
+  « X caractères sur 600 utilisés » en ne mesurant que les termes saisis, alors que les termes
+  déduits consomment désormais le même budget.
+
+  ⛔ **Le filtre n'a pas été recopié dans l'interface pour rendre le nombre exact**, et c'était la
+  tentation : deux implémentations de la même règle divergent, et rien ne le signale. Le libellé
+  dit donc précisément ce qu'il mesure, et une phrase explique que les substitutions alimentent
+  aussi cette liste. Un libellé exact vaut mieux qu'un nombre faussement précis.
+
 - **`scripts/mesurer-vocabulaire.py`, pour mesurer ce que le vocabulaire apporte vraiment** sur un
   vrai enregistrement, plutôt que de le supposer.
 

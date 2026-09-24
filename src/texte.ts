@@ -259,6 +259,15 @@ export function brancherVocabulaire(
     'Un terme par ligne : noms propres, termes de votre métier, acronymes. Ils sont donnés à la reconnaissance vocale avant qu’elle transcrive, pour qu’elle les écrive correctement du premier coup. Rien n’est remplacé après coup, donc un terme d’ici ne peut pas corriger de travers.';
   groupe.append(aide);
 
+  // ⚠️ Cet ajout est AUTOMATIQUE et invisible autrement : sans cette phrase, l'utilisateur ne
+  // saurait pas que ses substitutions alimentent aussi le vocabulaire, ni pourquoi le budget se
+  // remplit plus vite que ce qu'il a tape.
+  const deduits = document.createElement('p');
+  deduits.className = 'reglage-aide';
+  deduits.textContent =
+    'Vos substitutions y contribuent aussi : quand leur remplacement ressemble à un terme (un nom, un acronyme), il est ajouté à cette liste avant la transcription, sans que vous ayez à le ressaisir. Les corrections de tournure, elles, ne le sont pas. Ces termes partagent le budget ci-dessous.';
+  groupe.append(deduits);
+
   const zone = document.createElement('textarea');
   zone.id = 'vocabulaire-liste';
   zone.rows = 6;
@@ -272,11 +281,16 @@ export function brancherVocabulaire(
   const majCompte = (liste: string[]): void => {
     // ⚠️ On dit le PLAFOND et pas seulement le compte : le coeur ecarte les termes au-dela d'une
     // longueur totale, et l'apprendre par une transcription qui n'a pas marche serait pire.
+    //
+    // ⛔ **Le compte porte sur CETTE liste seule, et le libelle le dit.** Les termes deduits des
+    // substitutions consomment le meme budget, mais leur filtre vit dans le coeur : le recopier
+    // ici ferait deux implementations de la meme regle, qui finiraient par diverger sans que
+    // rien ne le signale. Un libelle exact vaut mieux qu'un nombre faussement precis.
     const caracteres = liste.join(', ').length;
     compte.textContent =
       liste.length === 0
-        ? 'Aucun terme. La reconnaissance fonctionne normalement.'
-        : `${liste.length} terme${liste.length > 1 ? 's' : ''}, ${caracteres} caractères sur 600 utilisés.` +
+        ? 'Aucun terme saisi. Vos substitutions peuvent quand même en fournir.'
+        : `${liste.length} terme${liste.length > 1 ? 's' : ''} saisi${liste.length > 1 ? 's' : ''}, ${caracteres} caractères sur les 600 du budget.` +
           (caracteres > 600 ? ' Les termes au-delà seront ignorés.' : '');
   };
   majCompte(lire());

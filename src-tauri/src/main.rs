@@ -213,7 +213,7 @@ fn aide() {
 fn transcrire(demande: &Demandetranscription) -> Result<(), String> {
     let reglages = reglages::lire_sans_application();
 
-    let modele_id = demande.modele.clone().unwrap_or(reglages.modele);
+    let modele_id = demande.modele.clone().unwrap_or_else(|| reglages.modele.clone());
 
     // ⛔ **Une seule resolution pour la ligne de commande et pour la dictee.** Ce calcul a deja
     // existe en double, et la copie d'ici ignorait la branche « moteur embarque » : elle annoncait
@@ -221,7 +221,9 @@ fn transcrire(demande: &Demandetranscription) -> Result<(), String> {
     // rend une cause TYPEE, que chacun rend dans sa langue, la ligne de commande parlant anglais.
     let outils = dictee::resoudre(&modele_id).map_err(|manque| manque.en_anglais())?;
 
-    let langue = demande.langue.clone().unwrap_or(reglages.langue);
+    // ⚠️ `clone()` et pas un deplacement : les reglages servent encore plus bas, pour deduire le
+    // vocabulaire a donner au moteur.
+    let langue = demande.langue.clone().unwrap_or_else(|| reglages.langue.clone());
     let audio = std::path::PathBuf::from(&demande.fichier);
 
     let resultat = moteur::transcrire(
@@ -231,7 +233,7 @@ fn transcrire(demande: &Demandetranscription) -> Result<(), String> {
         &langue,
         reglages.fils,
         reglages.temperature,
-        moteur::prompt_de_vocabulaire(&reglages.vocabulaire).as_deref(),
+        moteur::prompt_des_reglages(&reglages).as_deref(),
     )?;
 
     match &demande.sortie {
