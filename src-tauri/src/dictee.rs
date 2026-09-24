@@ -93,13 +93,13 @@ impl Manque {
         match self {
             Manque::ModeleInconnu(id) => format!("Unknown model: {id}"),
             Manque::ModeleAbsent(id) => format!(
-                "Model `{id}` is not downloaded.\nOpen Dictum and download it from the Models section."
+                "Model `{id}` is not downloaded.\nOpen Oyant and download it from the Models section."
             ),
             Manque::AucunMoteur => {
                 "No transcription engine is available for this platform yet.".to_string()
             }
             Manque::MoteurAbsent => {
-                "The transcription engine is not installed.\nOpen Dictum and install it from the \
+                "The transcription engine is not installed.\nOpen Oyant and install it from the \
                  Models section."
                     .to_string()
             }
@@ -115,7 +115,7 @@ pub struct Session {
     /// ⛔ **Vide pour le raccourci global, et c'est delibere.** Le raccourci ne touche pas au
     /// focus, donc il n'y a rien a restaurer ; forcer un retour ecraserait au contraire un
     /// changement de fenetre fait expres pendant qu'on parle. Le menu, lui, prend le focus par
-    /// construction : sans cette memoire, le texte irait dans la fenetre de Dictum.
+    /// construction : sans cette memoire, le texte irait dans la fenetre d’Oyant.
     cible: Option<isize>,
 }
 
@@ -176,7 +176,7 @@ fn commencer_avec(app: &AppHandle, cible: Option<isize>) {
         return;
     }
 
-    // ⛔ Le bip AVANT d'ouvrir le microphone, jamais pendant. Joue en parallele, Dictum
+    // ⛔ Le bip AVANT d'ouvrir le microphone, jamais pendant. Joue en parallele, Oyant
     // s'enregistrerait lui-meme, et un bip capte depasse le seuil de silence : un appui
     // accidentel declencherait alors une transcription au lieu d'etre reconnu comme
     // « personne n'a parle ».
@@ -219,7 +219,7 @@ pub fn terminer(app: &AppHandle) {
 
     // ⚠️ Apres l'arret du microphone, donc aucun risque de s'enregistrer. Il marque la fin de
     // l'ecoute et se joue meme quand l'appui etait trop bref : le bip de debut ayant deja sonne,
-    // ne pas le refermer laisserait croire que Dictum ecoute encore.
+    // ne pas le refermer laisserait croire qu’Oyant ecoute encore.
     if reglages.bip_fin
         && let Err(message) = audio::bip(reglages.frequence_bip_hz, reglages.duree_bip_ms)
     {
@@ -303,7 +303,7 @@ fn transcrire_et_ecrire(
 
     // ⚠️ Le fichier vit dans le repertoire temporaire et disparait ensuite : un enregistrement
     // de voix qui traine est une donnee personnelle qu'on n'a pas demande a conserver.
-    let audio_fichier = std::env::temp_dir().join(format!("dictum-{}.wav", std::process::id()));
+    let audio_fichier = std::env::temp_dir().join(format!("oyant-{}.wav", std::process::id()));
     audio::ecrire_wav(&audio_fichier, echantillons, audio::TAUX_MOTEUR)?;
 
     let transcription = moteur::transcrire(
@@ -385,7 +385,7 @@ fn signaler(app: &AppHandle, message: &str) {
     eprintln!("dictée : {message}");
 
     // ⛔ **Et une notification du systeme, parce que la fenetre est FERMEE la plupart du temps.**
-    // Dictum vit dans la zone de notification : sans ce second canal, une dictee qui echoue se
+    // Oyant vit dans la zone de notification : sans ce second canal, une dictee qui echoue se
     // manifeste par une icone qui revient au repos et un texte qui n'arrive pas, sans **aucun**
     // moyen de savoir pourquoi. C'est exactement le defaut que WhimprFlow a du corriger, et qu'on
     // avait au meme endroit tout en se felicitant de ne pas l'avoir.
@@ -393,7 +393,7 @@ fn signaler(app: &AppHandle, message: &str) {
         let _ = app
             .notification()
             .builder()
-            .title("Dictum")
+            .title("Oyant")
             .body(message)
             .show();
     }

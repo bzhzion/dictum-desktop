@@ -1,6 +1,6 @@
 """Produit les icones de la ZONE DE NOTIFICATION, une par etat.
 
-La marque de Dictum est un **anneau et un disque separes par un vide**. Elle est ici **redessinee**
+La marque d’Oyant est un **anneau et un disque separes par un vide**. Elle est ici **redessinee**
 plutot que decoupee dans l'icone d'application, pour deux raisons : a 32 pixels une reduction
 donne un trait sale, et l'icone d'application porte son fond marine opaque, qui ferait un carre
 sombre dans la barre des taches.

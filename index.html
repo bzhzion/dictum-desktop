@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <!-- Le titre n'apparait nulle part a l'ecran puisque la fenetre n'a pas de barre de titre,
          mais il reste ce qu'annoncent les lecteurs d'ecran et le gestionnaire de fenetres. -->
-    <title>Dictum</title>
+    <title>Oyant</title>
     <link rel="stylesheet" href="/src/styles/socle.css" />
   </head>
   <body>
@@ -15,7 +15,7 @@
     <header class="bandeau" data-glisser>
       <div class="marque">
         <span class="temoin" data-etat="repos" aria-hidden="true"></span>
-        <span class="nom">Dictum</span>
+        <span class="nom">Oyant</span>
         <!-- L'etat est ECRIT et pas seulement colore (WCAG 1.4.1), et annonce aux lecteurs
              d'ecran quand il change. -->
         <span class="etat" id="etat" role="status">Prêt</span>
@@ -32,7 +32,7 @@
     </header>
 
     <main class="panneau">
-      <!-- Premier ecran au premier lancement : sans modele, Dictum ne peut rien faire, donc
+      <!-- Premier ecran au premier lancement : sans modele, Oyant ne peut rien faire, donc
            c'est la premiere chose a regler. -->
       <section class="module" aria-labelledby="titre-modeles">
         <h2 class="section" id="titre-modeles">Transcription</h2>
@@ -40,7 +40,7 @@
              developpeurs, il ne dit rien a qui decouvre. On nomme les deux pieces par ce
              qu'elles font. -->
         <p class="corps">
-          Pour transformer votre voix en texte, Dictum a besoin de deux choses : un petit
+          Pour transformer votre voix en texte, Oyant a besoin de deux choses : un petit
           <strong>programme</strong> qui fait le calcul, et un <strong>modèle</strong> qui
           connaît la langue. Les deux restent sur votre ordinateur, et aucun enregistrement
           n’en sort.
@@ -92,7 +92,7 @@
             <label for="demarrage">
               <span class="reglage-titre">Démarrer avec le système</span>
               <span class="reglage-aide" id="demarrage-aide">
-                Dictum s'ouvre dans la zone de notification à l'ouverture de votre session, sans
+                Oyant s'ouvre dans la zone de notification à l'ouverture de votre session, sans
                 afficher sa fenêtre.
               </span>
             </label>
@@ -127,7 +127,7 @@
           <div><dt>Version</dt><dd id="version">...</dd></div>
           <div><dt>Plateforme</dt><dd id="plateforme">...</dd></div>
           <!-- ⚠️ « Injection » est le mot du domaine, il ne dit rien a qui decouvre le logiciel.
-               C'est la facon dont Dictum tape le texte dans l'application visee. -->
+               C'est la facon dont Oyant tape le texte dans l'application visee. -->
           <div><dt>Écriture du texte</dt><dd id="injection">...</dd></div>
         </dl>
 

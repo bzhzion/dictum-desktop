@@ -1,7 +1,7 @@
 # Chaine de verification, posee AVANT toute fonctionnalite.
 #
 # C'est delibere : brancher clippy en erreurs sur un projet vide coute zero, le brancher sur
-# plusieurs milliers de lignes deja ecrites coute une semaine. L'ancienne version de Dictum a
+# plusieurs milliers de lignes deja ecrites coute une semaine. L'ancienne version d’Oyant a
 # livre sept versions mineures sans qu'aucun workflow ne compile seulement le projet.
 #
 # ⚠️ Runners GitHub : ce depot est PUBLIC depuis le 2026-09-21, donc ils y sont gratuits. Ce

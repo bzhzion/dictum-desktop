@@ -1,11 +1,11 @@
-# Capture la fenetre de Dictum, et rien d'autre.
+# Capture la fenetre d’Oyant, et rien d'autre.
 #
 # ⛔ On utilise PrintWindow et PAS CopyFromScreen. CopyFromScreen photographie la ZONE DE L'ECRAN
 # ou la fenetre est censee se trouver : si elle est masquee, derriere une autre, ou pas au premier
 # plan, on capture l'ecran de quelqu'un sans que rien ne le signale. Deja arrive deux fois.
 # PrintWindow demande a la fenetre de se dessiner elle-meme dans notre image : ce qui n'est pas
 # la fenetre ne peut pas s'y retrouver.
-param([string]$Sortie, [string]$NomProcessus = 'dictum')
+param([string]$Sortie, [string]$NomProcessus = 'oyant')
 
 Add-Type -AssemblyName System.Drawing
 Add-Type @"

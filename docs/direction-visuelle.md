@@ -5,7 +5,7 @@ correct et une interface qui rendait le tout inutilisable.
 
 ## Le parti pris : une face avant d'appareil
 
-Dictum n'est pas une application qu'on parcourt, c'est un **instrument qu'on convoque**. Il vit
+Oyant n'est pas une application qu'on parcourt, c'est un **instrument qu'on convoque**. Il vit
 dans la zone de notification, on l'ouvre quelques secondes, on regle quelque chose, on le referme.
 Une mise en page de tableau de bord, avec sa barre laterale et ses cartes, serait un contresens :
 elle invite a explorer, alors qu'ici tout doit etre lisible d'un coup d'oeil.

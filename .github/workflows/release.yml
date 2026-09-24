@@ -42,9 +42,9 @@ jobs:
       # Meme raison que dans ci.yml : depot public, runners GitHub gratuits.
       matrix:
         include:
-          - { nom: linux, cible: linux-x64, binaire: dictum, runner: ubuntu-latest }
-          - { nom: windows, cible: windows-x64, binaire: dictum.exe, runner: windows-latest }
-          - { nom: macos, cible: macos-arm64, binaire: dictum, runner: macos-latest }
+          - { nom: linux, cible: linux-x64, binaire: oyant, runner: ubuntu-latest }
+          - { nom: windows, cible: windows-x64, binaire: oyant.exe, runner: windows-latest }
+          - { nom: macos, cible: macos-arm64, binaire: oyant, runner: macos-latest }
 
     steps:
       - uses: actions/checkout@v4
@@ -189,7 +189,7 @@ jobs:
       # ⛔ **Tauri ne lit pas `build.rs`.** Le binaire derive bien sa version du tag, mais le nom
       # et la version du `.deb` et de l'installateur NSIS viennent de `tauri.conf.json`, fige a
       # `0.0.0` par la convention du parc. Sans cette etape, le controle de version ci-dessous
-      # PASSE (le binaire dit `0.1.0`) pendant que le `.deb` publie s'appelle `Dictum_0.0.0` :
+      # PASSE (le binaire dit `0.1.0`) pendant que le `.deb` publie s'appelle `Oyant_0.0.0` :
       # `apt` enregistre `0.0.0` et **ne proposera jamais aucune mise a jour**, quel que soit le
       # nombre de tags poses ensuite. Rien n'echoue nulle part.
       #
@@ -208,7 +208,7 @@ jobs:
         shell: pwsh
         run: python scripts/poser-version.py --version ($env:GITHUB_REF_NAME -replace '^v', '')
 
-      # ⛔ **`DICTUM_VERSION` n'est pas une commodite, il repare ce que l'etape precedente casse.**
+      # ⛔ **`OYANT_VERSION` n'est pas une commodite, il repare ce que l'etape precedente casse.**
       # `build.rs` derive la version par `git describe --dirty`, et poser la version dans le
       # manifeste SALIT l'arbre : le binaire s'annoncait donc `0.1.0-dirty` et le controle juste
       # en dessous echouait sur les trois systemes, au premier tag. Le correctif a casse le
@@ -220,7 +220,7 @@ jobs:
       # Le `v` initial est retire par `build.rs` lui-meme.
       - name: Compiler
         env:
-          DICTUM_VERSION: ${{ github.ref_type == 'tag' && github.ref_name || '' }}
+          OYANT_VERSION: ${{ github.ref_type == 'tag' && github.ref_name || '' }}
         run: npm run tauri build
 
       # ⛔ Dedoublee par systeme : **`unraid-windows` n'a pas Git Bash**, donc `shell: bash` y rend
@@ -258,7 +258,7 @@ jobs:
         shell: bash
         run: |
           mkdir -p diffusion
-          cp "src-tauri/target/release/${{ matrix.binaire }}" "diffusion/dictum-${{ matrix.cible }}"
+          cp "src-tauri/target/release/${{ matrix.binaire }}" "diffusion/oyant-${{ matrix.cible }}"
 
           # ⛔ **Le binaire nu ne s'installe pas.** Il etait seul publie pour Linux, donc il n'y
           # avait rien a poser dans le depot apt ni a donner a quelqu'un : `tauri build` produit
@@ -278,7 +278,7 @@ jobs:
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force -Path diffusion | Out-Null
-          Copy-Item "src-tauri\target\release\${{ matrix.binaire }}" "diffusion\dictum-${{ matrix.cible }}.exe"
+          Copy-Item "src-tauri\target\release\${{ matrix.binaire }}" "diffusion\oyant-${{ matrix.cible }}.exe"
 
           # Meme raison que pour le `.deb` : c'est l'installateur qui s'installe, pas l'exe nu,
           # qui arriverait sans le moteur embarque ni le runtime Visual C++ poses a cote.
@@ -290,7 +290,7 @@ jobs:
           Copy-Item $setup.FullName "diffusion\$($setup.Name)"
       - uses: actions/upload-artifact@v4
         with:
-          name: dictum-${{ matrix.cible }}
+          name: oyant-${{ matrix.cible }}
           path: diffusion/*
 
   # ── Depot apt (axolotl, /opt/apt) ─────────────────────────────────────────────────
@@ -302,7 +302,7 @@ jobs:
   #
   # ⚠️ **Cle DEDIEE a commande forcee, et pas la cle d'acces general a axolotl.** Le parc admet les
   # deux (`justmakeq` et `hae-app` utilisent la seconde parce qu'ils sont prives), mais celle-ci ne
-  # peut STRICTEMENT rien faire d'autre que publier un paquet nomme `dictum` : pas de shell, pas
+  # peut STRICTEMENT rien faire d'autre que publier un paquet nomme `oyant` : pas de shell, pas
   # de lecture de fichier, pas de redirection de port. Ses trois modes de refus ont ete prouves le
   # 2026-09-21 avant qu'elle soit gardee. Si ce depot devient public un jour, rien ne change.
   apt:
@@ -313,7 +313,7 @@ jobs:
     steps:
       - uses: actions/download-artifact@v4
         with:
-          name: dictum-linux-x64
+          name: oyant-linux-x64
           path: diffusion
 
       - name: Publier le paquet
@@ -341,14 +341,14 @@ jobs:
   # ── Depot pacman (axolotl, /opt/pacman) ───────────────────────────────────────────
   #
   # Memes regles que le depot apt : tag seulement, cle dediee a commande forcee qui ne publie
-  # qu'un paquet nomme `dictum-bin`, ses trois modes de refus prouves le 2026-09-21.
+  # qu'un paquet nomme `oyant-bin`, ses trois modes de refus prouves le 2026-09-21.
   #
   # ⚠️ **Le paquet se construit dans un conteneur Arch, et les fichiers y entrent par `docker cp`
   # et pas par `-v`.** Un montage lie la construction aux permissions de l'hote, ce qui a deja
   # coute sur les runners du parc ; une copie ne suppose rien de l'hote.
   #
-  # ⚠️ **`makepkg` ne telecharge pas les `source` du PKGBUILD** : il trouve `dictum` et
-  # `dictum.png` deja poses sous ces noms exacts dans le repertoire de construction et les prend
+  # ⚠️ **`makepkg` ne telecharge pas les `source` du PKGBUILD** : il trouve `oyant` et
+  # `oyant.png` deja poses sous ces noms exacts dans le repertoire de construction et les prend
   # tels quels. C'est indispensable, ce depot etant prive.
   # ⚠️ **`ubuntu-latest` et pas un runner maison, contrairement aux jobs de construction**, et
   # c'est un ecart assume plutot qu'un oubli. Le motif de la regle est le cout des minutes sur un
@@ -366,14 +366,14 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
         with:
-          name: dictum-linux-x64
+          name: oyant-linux-x64
           path: diffusion
 
       - name: Preparer le PKGBUILD
         run: |
           python3 scripts/preparer-pkgbuild.py \
             --version "${GITHUB_REF_NAME#v}" \
-            --binaire diffusion/dictum-linux-x64 \
+            --binaire diffusion/oyant-linux-x64 \
             --destination construction-arch
 
       - name: Construire le paquet Arch
@@ -420,7 +420,7 @@ jobs:
 
   # ── Telechargement public (R2, dl.breizhzion.com) ─────────────────────────────────
   #
-  # ⛔ **Ce job existe parce que sans lui personne sous Windows ne pouvait obtenir Dictum.** Le
+  # ⛔ **Ce job existe parce que sans lui personne sous Windows ne pouvait obtenir Oyant.** Le
   # depot etait PRIVE quand la 0.1.0 est sortie : ses releases GitHub n'etaient pas
   # telechargeables, l'installateur n'existait nulle part d'accessible, et le site vitrine
   # pointait encore vers l'ancien depot et sa 1.7.0.
@@ -455,8 +455,8 @@ jobs:
       # que R2 refuse, et l'envoi echoue sans rapport avec les droits.
       AWS_REQUEST_CHECKSUM_CALCULATION: when_required
       AWS_RESPONSE_CHECKSUM_VALIDATION: when_required
-      DEPOT: s3://breizhzion-releases/dictum-desktop
-      BASE: https://dl.breizhzion.com/dictum-desktop
+      DEPOT: s3://breizhzion-releases/oyant-desktop
+      BASE: https://dl.breizhzion.com/oyant-desktop
     steps:
       - uses: actions/download-artifact@v4
         with:
@@ -482,7 +482,7 @@ jobs:
           # precaution theorique : un manifest winget porte le SHA256 de l'installateur, donc
           # ecraser le nom fixe invalide l'empreinte de toutes les versions deja publiees, et le
           # canal casse **a la release suivante** et pas a la publication.
-          for nom in "Dictum-Setup-x64.exe" "Dictum-Setup-x64-$version.exe"; do
+          for nom in "Oyant-Setup-x64.exe" "Oyant-Setup-x64-$version.exe"; do
             aws s3 cp "$setup" "$DEPOT/$nom" --endpoint-url "$r2" \
               --content-type application/octet-stream
           done
@@ -490,7 +490,7 @@ jobs:
           # ⚠️ Linux n'a QU'un nom fixe, sans copie versionnee : le versionnement est delegue au
           # depot apt, dont le pool garde chaque version et dont l'index epingle deja les SHA256.
           # Ce fichier n'existe que pour qui veut un telechargement direct sans ajouter le depot.
-          aws s3 cp "$paquet" "$DEPOT/Dictum-Linux-x64.deb" --endpoint-url "$r2" \
+          aws s3 cp "$paquet" "$DEPOT/Oyant-Linux-x64.deb" --endpoint-url "$r2" \
             --content-type application/vnd.debian.binary-package
 
       - name: Lire le manifeste existant
@@ -525,12 +525,12 @@ jobs:
           # ⚠️ Vocabulaire du parc (`windows_x64`), pas les noms de cible Rust : une cle que des
           # sites lisent et un nom d'artefact sont deux choses differentes.
           fichiers["windows_x64"] = {
-              "url": f"{base}/Dictum-Setup-x64.exe",
-              "versioned_url": f"{base}/Dictum-Setup-x64-{version}.exe",
+              "url": f"{base}/Oyant-Setup-x64.exe",
+              "versioned_url": f"{base}/Oyant-Setup-x64-{version}.exe",
               "version": version,
           }
           fichiers["linux_x64"] = {
-              "url": f"{base}/Dictum-Linux-x64.deb",
+              "url": f"{base}/Oyant-Linux-x64.deb",
               "version": version,
           }
 

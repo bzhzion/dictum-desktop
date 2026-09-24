@@ -1,6 +1,6 @@
 //! L'historique des transcriptions.
 //!
-//! ⛔ **C'est le fichier le plus personnel que Dictum ecrit.** Il contient ce que quelqu'un a dit
+//! ⛔ **C'est le fichier le plus personnel qu’Oyant ecrit.** Il contient ce que quelqu'un a dit
 //! a voix haute chez lui : des mots de passe dictes, des messages prives, des notes medicales. Il
 //! est donc **desactive par defaut**, il vit dans le profil LOCAL et jamais dans un profil
 //! itinerant, et **le couper efface ce qui a ete garde**.

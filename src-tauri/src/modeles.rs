@@ -27,7 +27,7 @@ use serde::Serialize;
 use sha2::{Digest, Sha256};
 use tauri::{AppHandle, Emitter, Manager};
 
-/// Un modele que Dictum sait telecharger.
+/// Un modele qu’Oyant sait telecharger.
 ///
 /// ⚠️ **Tailles et empreintes RELEVEES sur la source**, jamais estimees : lues le 2026-09-17 sur
 /// l'API de HuggingFace, qui expose l'identifiant LFS de chaque fichier, lequel est son SHA-256.
@@ -243,7 +243,7 @@ pub fn etat_modeles(app: AppHandle) -> Vec<EtatModele> {
 ///
 /// ⛔ **L'ordre compte, et c'est le meme que pour le moteur : on telecharge AVANT d'enregistrer
 /// le choix.** Enregistrer d'abord laisserait, si le telechargement echoue, un reglage qui
-/// designe un fichier absent : Dictum refuserait alors de transcrire en disant que le modele
+/// designe un fichier absent : Oyant refuserait alors de transcrire en disant que le modele
 /// manque, sur un choix que l'utilisateur vient pourtant de faire.
 #[tauri::command]
 pub async fn choisir_modele(
@@ -535,7 +535,7 @@ mod tests {
     /// pour attraper une erreur de decoupage qui donnerait un hachage stable mais faux.
     #[test]
     fn l_empreinte_d_un_contenu_connu_est_juste() {
-        let dossier = std::env::temp_dir().join("dictum-essai-empreinte");
+        let dossier = std::env::temp_dir().join("oyant-essai-empreinte");
         let _ = fs::create_dir_all(&dossier);
         let fichier = dossier.join("abc.txt");
         fs::write(&fichier, b"abc").unwrap();

@@ -1,4 +1,4 @@
-"""Construit l'artefact du moteur Vulkan de Dictum, sur cette machine.
+"""Construit l'artefact du moteur Vulkan d’Oyant, sur cette machine.
 
 Pourquoi ici et pas en integration continue : whisper.cpp ne publie aucune version
 Vulkan toute faite, et une CI n'a pas de carte graphique, donc l'artefact ne pourrait
@@ -39,7 +39,7 @@ RACINE = Path(__file__).resolve().parent.parent
 TRAVAIL = RACINE / ".scratch" / "moteur-vulkan"
 SOURCES = TRAVAIL / "whisper.cpp"
 CONSTRUCTION = TRAVAIL / "build"
-ARTEFACT = TRAVAIL / f"dictum-moteur-windows-x64-vulkan-{ETIQUETTE}.zip"
+ARTEFACT = TRAVAIL / f"oyant-moteur-windows-x64-vulkan-{ETIQUETTE}.zip"
 
 # Les seuls fichiers qui servent. L'archive amont en embarque une quarantaine d'autres
 # (bancs d'essai, serveur, jeu d'echecs, binaires de test) dont aucun n'est appele.

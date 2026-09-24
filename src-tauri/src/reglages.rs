@@ -37,7 +37,7 @@ pub fn demarrage_automatique(app: AppHandle) -> bool {
     app.autolaunch().is_enabled().unwrap_or(false)
 }
 
-/// Inscrit ou retire Dictum du demarrage du systeme, puis **relit l'etat reel**.
+/// Inscrit ou retire Oyant du demarrage du systeme, puis **relit l'etat reel**.
 ///
 /// La valeur rendue est ce que le systeme dit APRES l'operation, pas ce qui a ete demande. En cas
 /// de refus, l'erreur est remontee a l'interface pour y etre affichee : un reglage qui echoue en
@@ -63,7 +63,7 @@ pub fn definir_demarrage_automatique(app: AppHandle, actif: bool) -> Result<bool
 
 // ── Le fichier de configuration ────────────────────────────────────────────────────────────
 
-/// L'ensemble des reglages dont Dictum est la source de verite.
+/// L'ensemble des reglages dont Oyant est la source de verite.
 ///
 /// ⚠️ `#[serde(default)]` au niveau du conteneur est **structurant et pas cosmetique** : un
 /// fichier ecrit par une version anterieure n'a pas les champs ajoutes depuis, et sans lui la
@@ -296,7 +296,7 @@ impl Reglages {
 /// Emplacement du fichier de configuration.
 ///
 /// ⛔ **Surtout PAS dans le repertoire d'installation.** C'est ce que faisait l'ancienne version
-/// (`%LOCALAPPDATA%\Dictum\config.json`), avec deux consequences : la desinstallation emporte la
+/// (`%LOCALAPPDATA%\Oyant\config.json`), avec deux consequences : la desinstallation emporte la
 /// configuration, et le repertoire est entre en collision avec l'installation de la nouvelle
 /// version le 2026-09-17. Le repertoire de configuration de l'utilisateur est fait pour ca.
 fn chemin(_app: &AppHandle) -> Result<PathBuf, String> {
@@ -373,7 +373,7 @@ pub fn ecrire_reglages(app: AppHandle, reglages: Reglages) -> Result<Reglages, S
 /// Lit les reglages SANS application Tauri, pour la ligne de commande.
 ///
 /// ⛔ **La ligne de commande doit se comporter exactement comme l'interface.** Si elle ignorait le
-/// fichier de reglages, `dictum fichier.wav` utiliserait un autre modele et une autre langue que
+/// fichier de reglages, `oyant fichier.wav` utiliserait un autre modele et une autre langue que
 /// ce que l'ecran affiche, et tout diagnostic deviendrait impossible : deux resultats differents
 /// sur la meme machine sans que rien n'explique pourquoi.
 ///

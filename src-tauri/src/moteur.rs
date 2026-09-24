@@ -39,7 +39,7 @@ pub struct Moteur {
     pub executable: &'static str,
     /// Livre PAR L'INSTALLATEUR, donc rien a telecharger ni a verifier a l'execution.
     ///
-    /// ⛔ C'est le plancher du produit : Dictum doit savoir dicter des la fin de l'installation,
+    /// ⛔ C'est le plancher du produit : Oyant doit savoir dicter des la fin de l'installation,
     /// sans reseau. Un catalogue distant rend le logiciel dependant de notre disponibilite, donc
     /// le choix par defaut ne doit jamais en dependre.
     pub embarque: bool,
@@ -78,7 +78,7 @@ pub const MOTEURS: &[Moteur] = &[
         nom: "Le processeur",
         // ⚠️ Ecrit pour quelqu'un qui decouvre. « Dos d'execution » etait la traduction litterale
         // de *backend* : un mot que personne ne dit et qui n'explique rien.
-        description: "Fourni avec Dictum, rien à télécharger. Fonctionne sur toutes les machines. Plus lent, mais c'est le choix sûr.",
+        description: "Fourni avec Oyant, rien à télécharger. Fonctionne sur toutes les machines. Plus lent, mais c'est le choix sûr.",
         // Vides : ce moteur est livre par l'installateur. `scripts/preparer-moteur-embarque.py`
         // porte l'etiquette amont, l'empreinte attendue et le jeu minimal de fichiers.
         url: "",
@@ -212,9 +212,9 @@ pub struct EtatMoteur {
     pub taille_attendue: u64,
     /// L'executable est en place et utilisable.
     pub installe: bool,
-    /// Livre avec Dictum : rien a telecharger, et il n'y a pas de taille a annoncer.
+    /// Livre avec Oyant : rien a telecharger, et il n'y a pas de taille a annoncer.
     pub embarque: bool,
-    /// C'est celui que Dictum utilise.
+    /// C'est celui qu’Oyant utilise.
     pub actif: bool,
     /// Les dos d'execution reellement charges, mesures. Vide si rien n'est installe.
     pub acceleration_chargee: Vec<String>,
@@ -359,7 +359,7 @@ fn etat_de(moteur: &Moteur) -> EtatMoteur {
 /// Retient le choix, apres s'etre assure que le programme est bien la.
 ///
 /// ⛔ **L'ordre compte : on installe AVANT d'enregistrer le choix.** Enregistrer d'abord
-/// laisserait, si le telechargement echoue, un reglage qui designe un programme absent : Dictum
+/// laisserait, si le telechargement echoue, un reglage qui designe un programme absent : Oyant
 /// refuserait alors de transcrire en disant que le programme manque, sur un choix que
 /// l'utilisateur vient pourtant de faire.
 #[tauri::command]
@@ -456,7 +456,7 @@ pub fn etat_moteurs() -> Vec<EtatMoteur> {
 pub async fn installer_moteur(app: AppHandle, identifiant: String) -> Result<EtatMoteur, String> {
     let moteur = par_identifiant(&identifiant).ok_or("Moteur inconnu")?;
     if moteur.embarque {
-        return Err("Ce moteur est fourni avec Dictum, il n'y a rien à installer.".to_string());
+        return Err("Ce moteur est fourni avec Oyant, il n'y a rien à installer.".to_string());
     }
     let cible = dossier(moteur)?;
     fs::create_dir_all(&cible).map_err(|erreur| format!("Répertoire non créé : {erreur}"))?;
@@ -732,7 +732,7 @@ pub fn acceleration_chargee(executable: &Path) -> Vec<String> {
 ///
 /// ⛔ **Sans ca, le moteur ne demarre pas sur un Windows sans redistribuable Visual C++.**
 /// `whisper-cli.exe` importe `msvcp140.dll` et `vcomp140.dll`, qu'aucune archive amont
-/// n'embarque et que Windows ne fournit pas. L'installateur les depose a cote de `dictum.exe`
+/// n'embarque et que Windows ne fournit pas. L'installateur les depose a cote de `oyant.exe`
 /// (`scripts/preparer-runtime-vcpp.py`), mais Windows cherche dans le repertoire de
 /// L'EXECUTABLE LANCE, ici celui du moteur, et pas dans le notre. Le `PATH` de l'enfant est ce
 /// qui relie les deux, et il vaut aussi pour les moteurs qu'on ne compile pas, comme CUDA.
@@ -907,7 +907,7 @@ pub async fn prechauffer(identifiant: String) -> Result<bool, String> {
 
     let binaire = executable(moteur)?;
     tauri::async_runtime::spawn_blocking(move || -> Result<bool, String> {
-        let essai = std::env::temp_dir().join("dictum-prechauffage.wav");
+        let essai = std::env::temp_dir().join("oyant-prechauffage.wav");
         wav_de_silence(&essai, 500)?;
         // Le resultat est jete : seul l'effet de bord sur le cache de noyaux nous interesse.
         let _ = commande(&binaire)
@@ -1196,18 +1196,18 @@ mod tests {
 
     /// ⛔ **Garde la panne qu'aucune machine de developpement ne peut montrer.** Sur un Windows
     /// sans redistribuable Visual C++, le moteur ne demarre pas : l'installateur depose le runtime
-    /// a cote de `dictum.exe`, mais Windows cherche dans le repertoire du binaire LANCE. Ce
+    /// a cote de `oyant.exe`, mais Windows cherche dans le repertoire du binaire LANCE. Ce
     /// `PATH` est le seul lien entre les deux.
     #[test]
     fn le_repertoire_de_l_application_passe_en_tete_du_chemin() {
-        let repertoire = Path::new("C:\\Program Files\\Dictum");
+        let repertoire = Path::new("C:\\Program Files\\Oyant");
 
         let enrichi = chemin_enrichi("C:\\Windows\\System32;C:\\autre", repertoire);
-        assert!(enrichi.starts_with("C:\\Program Files\\Dictum;"));
+        assert!(enrichi.starts_with("C:\\Program Files\\Oyant;"));
         assert!(enrichi.ends_with("C:\\Windows\\System32;C:\\autre"));
 
         // Un PATH vide ne doit pas produire de separateur orphelin.
-        assert_eq!(chemin_enrichi("", repertoire), "C:\\Program Files\\Dictum");
+        assert_eq!(chemin_enrichi("", repertoire), "C:\\Program Files\\Oyant");
     }
 
     /// ⛔ **Prouve que le `PATH` calcule atteint VRAIMENT le processus enfant**, et pas seulement
@@ -1221,7 +1221,7 @@ mod tests {
         let sortie = commande_avec(
             Path::new("cmd"),
             "C:\\Windows\\System32",
-            Path::new("Z:\\Dictum-sentinelle"),
+            Path::new("Z:\\Oyant-sentinelle"),
         )
         .args(["/c", "echo %PATH%"])
         .output()
@@ -1230,7 +1230,7 @@ mod tests {
         let vu = String::from_utf8_lossy(&sortie.stdout);
         assert_eq!(
             vu.trim(),
-            "Z:\\Dictum-sentinelle;C:\\Windows\\System32",
+            "Z:\\Oyant-sentinelle;C:\\Windows\\System32",
             "le PATH n'est pas arrive intact au processus enfant"
         );
     }
@@ -1239,13 +1239,13 @@ mod tests {
     /// d'une copie a chaque fois, jusqu'a depasser la limite de l'environnement d'un processus.
     #[test]
     fn le_chemin_ne_recoit_pas_deux_fois_le_meme_repertoire() {
-        let repertoire = Path::new("C:\\Program Files\\Dictum");
+        let repertoire = Path::new("C:\\Program Files\\Oyant");
         let une_fois = chemin_enrichi("C:\\Windows\\System32", repertoire);
         assert_eq!(chemin_enrichi(&une_fois, repertoire), une_fois);
 
         // Meme repertoire, ecrit autrement : Windows ne fait pas la difference, nous non plus.
-        let casse = chemin_enrichi("c:\\program files\\dictum;C:\\Windows", repertoire);
-        assert_eq!(casse, "c:\\program files\\dictum;C:\\Windows");
+        let casse = chemin_enrichi("c:\\program files\\oyant;C:\\Windows", repertoire);
+        assert_eq!(casse, "c:\\program files\\oyant;C:\\Windows");
     }
 
     /// ⛔ **CUDA n'est propose que si le pilote NVIDIA est la** (arbitre par painteau le
@@ -1336,7 +1336,7 @@ mod tests {
     /// raison.
     ///
     /// ⚠️ La difference de fond, qui se dit a l'utilisateur et pas seulement au compilateur :
-    /// **sous Windows, Dictum dicte des la fin de l'installation, sans reseau** ; sous Linux, la
+    /// **sous Windows, Oyant dicte des la fin de l'installation, sans reseau** ; sous Linux, la
     /// premiere dictee demande un telechargement.
     #[test]
     fn le_plancher_de_chaque_plateforme_est_celui_qu_on_annonce() {

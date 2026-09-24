@@ -1,12 +1,12 @@
 """Rassemble le runtime Visual C++ que l'installateur doit embarquer.
 
-⛔ Le probleme qu'on resout ici n'est visible sur AUCUNE machine de developpement. `dictum.exe`
+⛔ Le probleme qu'on resout ici n'est visible sur AUCUNE machine de developpement. `oyant.exe`
 importe `vcruntime140.dll`, et tout moteur whisper.cpp importe en plus `msvcp140.dll` et
 `vcomp140.dll`. **Windows ne fournit aucune des quatre**, et **aucune archive amont de whisper.cpp
 ne les embarque**. Sur un Windows neuf sans redistribuable Visual C++, l'application ne demarre
 pas, avec une boite de dialogue qui nomme une DLL et rien d'autre.
 
-Pourquoi a cote de `dictum.exe` plutot qu'installe dans le systeme : l'installateur de Dictum
+Pourquoi a cote de `oyant.exe` plutot qu'installe dans le systeme : l'installateur d’Oyant
 s'execute **sans elevation** (`installMode: currentUser`), donc il ne peut pas poser un
 redistribuable machine. Le deploiement dit « app-local » ne demande aucun privilege et Windows
 cherche dans le repertoire de l'executable avant le systeme.
@@ -35,7 +35,7 @@ CIBLE = RACINE / "src-tauri" / "runtime"
 
 FICHIERS = [
     "msvcp140.dll",       # bibliotheque standard C++, exigee par whisper.cpp
-    "vcruntime140.dll",   # exigee par dictum.exe lui-meme
+    "vcruntime140.dll",   # exigee par oyant.exe lui-meme
     "vcruntime140_1.dll",  # gestion des exceptions, tiree par les deux precedentes
     "vcomp140.dll",       # OpenMP, exigee par ggml-base et ggml-cpu
 ]

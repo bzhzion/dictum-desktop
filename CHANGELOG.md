@@ -7,6 +7,48 @@ et ce projet adhere au [Semantic Versioning](https://semver.org/lang/fr/).
 
 ## [Unreleased]
 
+### Changed
+
+- ⛔ **Le produit s'appelle désormais Oyant, et ce n'est pas un choix esthétique.** Une
+  application **« Dictum - private voice to text »** existe déjà sur l'App Store (Factory Design
+  LLC, identifiant `6759581003`), et ce n'est pas une homonymie : même nom, même sous-titre
+  (« Dictation without the cloud »), même thèse (« No server, no upload, no account »), même
+  traitement sur l'appareil, même gratuité, mêmes plateformes. Un utilisateur ne peut pas
+  distinguer les deux produits, et un moteur de réponse encore moins.
+
+  ⚠️ **Le coût augmente chaque semaine, d'où le fait de le faire maintenant** : le dépôt est
+  public depuis trois jours, un seul tag est sorti, et l'application mobile n'a jamais été
+  publiée. Attendre aurait signifié construire davantage de référencement sur un nom qui envoie
+  les lecteurs chez quelqu'un d'autre.
+
+  **Oyant** est un terme de droit, participe présent d'« ouïr » : dans une reddition de compte,
+  le *rendant* présente sa gestion et l'*oyant* est celui qui **entend** le compte. Le nom dit
+  donc la fonction, dans le vocabulaire des professions auxquelles ce logiciel s'adresse.
+  Vérifié avant d'être retenu : **aucune marque en classe 9 ni 42**, INPI comme TMview.
+
+  ✅ **Les données ne sont pas perdues.** L'identifiant passe de
+  `org.breizhzion.dictum.desktop` à `org.breizhzion.oyant.desktop`, ce qui déplace le répertoire
+  où vivent les modèles, l'historique et les réglages. Une reprise au premier lancement déplace
+  l'ancien répertoire vers le nouveau. ⛔ **Sans elle, le renommage orphelinerait jusqu'à 3,1 Go
+  de modèles** et forcerait un retéléchargement.
+
+  ⛔ **La reprise n'écrase jamais ce qui existe déjà** : quelqu'un qui aurait lancé la nouvelle
+  version avant de migrer a des réglages neufs, et les remplacer par les anciens serait une perte
+  silencieuse. Prouvé rouge par mutation, comme le déplacement lui-même.
+
+  ⚠️ **L'URL du moteur Vulkan n'a délibérément PAS été renommée.** Elle désigne un objet R2 qui
+  existe, et que le binaire 0.1.1 déjà installé chez des gens va chercher. La changer avant
+  d'avoir copié l'objet transformerait un téléchargement qui marche en 404. La règle appliquée
+  est **on copie vers le nouveau préfixe, on ne déplace jamais**.
+
+  ⚠️ **Ce fichier n'a pas été renommé non plus**, et c'est volontaire : ce qui est sorti sous le
+  nom Dictum doit continuer à le dire. Réécrire l'historique n'est pas le documenter.
+
+  ⚠️ **« Oyant » commence par une voyelle, « Dictum » par une consonne.** Un remplacement de
+  chaîne ne connaît pas cette différence : il a produit « de Oyant » et « que Oyant » à 21
+  endroits, dont trois textes affichés dans les réglages. Corrigé séparément, parce qu'aucun
+  compilateur ne voit ce défaut-là.
+
 ### Added
 
 - **Le vocabulaire se remplit tout seul depuis les substitutions.** La cible d'une substitution,

@@ -8,7 +8,7 @@
 //! differemment a chaque version oubliee. Ici il ne PEUT pas diverger.
 //!
 //! Ordre de resolution, du plus explicite au plus general :
-//! 1. `DICTUM_VERSION` s'il est pose, ce qui laisse la CI forcer la valeur ;
+//! 1. `OYANT_VERSION` s'il est pose, ce qui laisse la CI forcer la valeur ;
 //! 2. `git describe`, qui couvre le developpement local et dit meme si l'arbre est sale ;
 //! 3. la version du manifeste, seul cas ou l'on construit hors d'un depot git.
 
@@ -26,13 +26,13 @@ fn main() {
     // n'y suffirait pas et le binaire garderait l'ancienne version, silencieusement.
     println!("cargo:rerun-if-changed=.git/HEAD");
     println!("cargo:rerun-if-changed=.git/refs/tags");
-    println!("cargo:rerun-if-env-changed=DICTUM_VERSION");
+    println!("cargo:rerun-if-env-changed=OYANT_VERSION");
 
     let version = version_forcee()
         .or_else(version_git)
         .unwrap_or_else(|| env!("CARGO_PKG_VERSION").to_string());
 
-    println!("cargo:rustc-env=DICTUM_VERSION={version}");
+    println!("cargo:rustc-env=OYANT_VERSION={version}");
 }
 
 /// Dit quoi lancer quand il manque un des repertoires que l'installateur doit embarquer.
@@ -79,7 +79,7 @@ fn verifier_les_repertoires_embarques() {
 }
 
 fn version_forcee() -> Option<String> {
-    std::env::var("DICTUM_VERSION")
+    std::env::var("OYANT_VERSION")
         .ok()
         .map(|v| nettoyer(&v))
         .filter(|v| !v.is_empty())

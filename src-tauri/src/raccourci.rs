@@ -1,6 +1,6 @@
 //! Le raccourci global : la seule chose qui declenche une dictee.
 //!
-//! ⛔ **Il doit rendre l'appui ET le relachement.** Le raccourci de Dictum se TIENT enfonce : on
+//! ⛔ **Il doit rendre l'appui ET le relachement.** Le raccourci d’Oyant se TIENT enfonce : on
 //! parle pendant, et relacher lance la transcription. Un raccourci a bascule laisserait un
 //! microphone ouvert sans que rien ne le rappelle, dans une application dont la fenetre n'est
 //! meme pas affichee.

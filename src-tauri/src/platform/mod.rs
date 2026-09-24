@@ -1,6 +1,6 @@
 //! Ce que la plateforme courante permet reellement.
 //!
-//! Les quatre briques natives de Dictum (capture audio, raccourci global, injection au curseur,
+//! Les quatre briques natives d’Oyant (capture audio, raccourci global, injection au curseur,
 //! icone de zone de notification) n'ont pas la meme implementation partout, et le cas Linux n'en
 //! a pas UNE mais DEUX. Ce module isole ce choix pour que le reste du code ne connaisse jamais
 //! d'`#[cfg(windows)]` disperse.

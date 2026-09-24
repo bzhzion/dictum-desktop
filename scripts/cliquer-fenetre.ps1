@@ -1,4 +1,4 @@
-# Clique a une position DONNEE EN COORDONNEES DE LA FENETRE de Dictum.
+# Clique a une position DONNEE EN COORDONNEES DE LA FENETRE d’Oyant.
 #
 # ⛔ Le rectangle est relu a chaque appel. Reutiliser des coordonnees ecran calculees lors d'une
 # capture precedente clique a cote des que la fenetre a bouge, et sur ce qu'il y a dessous.
@@ -19,7 +19,7 @@ public class Clic {
 }
 "@
 
-$processus = Get-Process dictum -ErrorAction Stop | Where-Object { $_.MainWindowHandle -ne 0 } | Select-Object -First 1
+$processus = Get-Process oyant -ErrorAction Stop | Where-Object { $_.MainWindowHandle -ne 0 } | Select-Object -First 1
 $poignee = $processus.MainWindowHandle
 if (-not [Clic]::IsWindowVisible($poignee)) { throw "fenetre masquee : le clic irait ailleurs" }
 
@@ -28,7 +28,7 @@ $r = New-Object Clic+RECT
 $ecranX = $r.L + $X
 $ecranY = $r.T + $Y
 
-# Deuxieme verrou : ce qui se trouve reellement sous le curseur doit appartenir a Dictum.
+# Deuxieme verrou : ce qui se trouve reellement sous le curseur doit appartenir a Oyant.
 $point = New-Object Clic+POINT
 $point.X = $ecranX; $point.Y = $ecranY
 $sous = [Clic]::GetAncestor([Clic]::WindowFromPoint($point), 2)  # GA_ROOT

@@ -23,7 +23,7 @@ from pathlib import Path
 from PIL import Image, ImageDraw
 
 RACINE = Path(__file__).resolve().parent.parent
-SOURCE = RACINE.parent / "dictum-app" / "assets" / "icon.png"
+SOURCE = RACINE.parent / "oyant-app" / "assets" / "icon.png"
 CIBLE = RACINE / "src-tauri" / "icons" / "maitre-bureau.png"
 
 CANEVAS = 1024

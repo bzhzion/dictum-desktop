@@ -5,7 +5,7 @@
 // `0.0.0` dans le depot.
 //
 // ⛔ Et ce n'est pas un detail cosmetique. Sans ce patch, l'installateur s'appelle
-// `Dictum_0.0.0_x64-setup.exe`, « Programmes et fonctionnalites » affiche 0.0.0, et surtout
+// `Oyant_0.0.0_x64-setup.exe`, « Programmes et fonctionnalites » affiche 0.0.0, et surtout
 // **Windows refuse de mettre a jour une installation par une version qui n'est pas superieure** :
 // toutes les versions se valant, la mise a jour ne se ferait jamais. Le binaire, lui, connait sa
 // vraie version par `build.rs`, ce qui aurait donne un logiciel qui s'annonce 1.2.0 dans une

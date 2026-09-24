@@ -1,4 +1,4 @@
-# Dictum
+# Oyant
 
 **Dictée vocale dont la reconnaissance tourne sur votre propre ordinateur.** Vous maintenez une
 touche, vous parlez, le texte s'écrit là où se trouve votre curseur. Aucun enregistrement n'est
@@ -7,7 +7,7 @@ envoyé nulle part, et le logiciel fonctionne sans connexion internet.
 Windows et Linux. Gratuit, sans compte. Édité par [BREIZHZION](https://breizhzion.com),
 association d'intérêt général.
 
-**[dictum.breizhzion.com](https://dictum.breizhzion.com)** pour la présentation et le
+**[oyant.breizhzion.com](https://oyant.breizhzion.com)** pour la présentation et le
 téléchargement.
 
 ---
@@ -16,7 +16,7 @@ téléchargement.
 
 **Windows** : un seul fichier, aucun mot de passe administrateur demandé.
 
-> [Dictum-Setup-x64.exe](https://dl.breizhzion.com/dictum-desktop/Dictum-Setup-x64.exe)
+> [Oyant-Setup-x64.exe](https://dl.breizhzion.com/oyant-desktop/Oyant-Setup-x64.exe)
 
 **Debian et Ubuntu**, par le dépôt de l'association :
 
@@ -25,7 +25,7 @@ curl -fsSL https://apt.breizhzion.com/KEY.gpg \
   | sudo gpg --dearmor -o /usr/share/keyrings/breizhzion.gpg
 echo "deb [signed-by=/usr/share/keyrings/breizhzion.gpg] https://apt.breizhzion.com stable main" \
   | sudo tee /etc/apt/sources.list.d/breizhzion.list
-sudo apt update && sudo apt install dictum
+sudo apt update && sudo apt install oyant
 ```
 
 **Arch** :
@@ -35,7 +35,7 @@ printf '\n[breizhzion]\nSigLevel = Required DatabaseRequired\nServer = https://p
   | sudo tee -a /etc/pacman.conf
 curl -fsSL https://pacman.breizhzion.com/KEY.gpg | sudo pacman-key --add -
 sudo pacman-key --lsign-key apt@breizhzion.com
-sudo pacman -Syu dictum-bin
+sudo pacman -Syu oyant-bin
 ```
 
 ⚠️ **Sous Linux, la dictée fonctionne sur les sessions X11 et pas encore sur Wayland**, qui est le
@@ -86,12 +86,12 @@ ce dernier n'étant proposé que si un pilote NVIDIA est détecté.
 
 ## Où sont les données
 
-Sous l'identifiant `org.breizhzion.dictum.desktop` dans votre profil utilisateur, jamais dans le
+Sous l'identifiant `org.breizhzion.oyant.desktop` dans votre profil utilisateur, jamais dans le
 répertoire d'installation :
 
 | Système | Emplacement |
 |---|---|
-| Windows | `%LOCALAPPDATA%\org.breizhzion.dictum.desktop` |
+| Windows | `%LOCALAPPDATA%\org.breizhzion.oyant.desktop` |
 | Linux | `$XDG_DATA_HOME/...`, sinon `~/.local/share/...` |
 | macOS | `~/Library/Application Support/...` |
 

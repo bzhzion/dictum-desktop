@@ -14,7 +14,7 @@
 # depuis, donc les URL seraient joignables. On continue pourtant a poser les fichiers, pour une
 # autre raison : la CI construit le paquet AVANT que la release GitHub existe, donc l'URL qu'un
 # telechargement viserait ne repond pas encore au moment ou `makepkg` tourne.
-pkgname=dictum-bin
+pkgname=oyant-bin
 _pkgver=0.0.0
 pkgver=${_pkgver//-/_}
 pkgrel=1
@@ -22,8 +22,8 @@ pkgdesc="Dictée vocale locale : aucun enregistrement ne quitte l'ordinateur"
 arch=('x86_64')
 url="https://breizhzion.com"
 license=('custom')
-provides=('dictum')
-conflicts=('dictum')
+provides=('oyant')
+conflicts=('oyant')
 # ⚠️ Traduit des dependances que Tauri declare dans le .deb, et **verifie dans l'archive
 # officielle Arch** le 2026-09-21 plutot que devine :
 #   libwebkit2gtk-4.1-0 -> webkit2gtk-4.1 · libgtk-3-0 -> gtk3
@@ -34,22 +34,22 @@ conflicts=('dictum')
 # refuse de demarrer en nommant un fichier `.so`, loin de sa cause.
 depends=('webkit2gtk-4.1' 'gtk3' 'libayatana-appindicator' 'alsa-lib')
 options=('!strip' '!debug')
-source=("dictum::https://github.com/bzhzion/dictum-desktop/releases/download/v${_pkgver}/dictum-linux-x64"
-        "dictum.png::https://raw.githubusercontent.com/bzhzion/dictum-desktop/v${_pkgver}/src-tauri/icons/128x128%402x.png")
+source=("oyant::https://github.com/bzhzion/oyant-desktop/releases/download/v${_pkgver}/oyant-linux-x64"
+        "oyant.png::https://raw.githubusercontent.com/bzhzion/oyant-desktop/v${_pkgver}/src-tauri/icons/128x128%402x.png")
 sha256sums=('SKIP'
             'SKIP')
 
 package() {
-  install -Dm755 "${srcdir}/dictum" "${pkgdir}/usr/bin/dictum"
-  install -Dm644 "${srcdir}/dictum.png" "${pkgdir}/usr/share/icons/hicolor/256x256/apps/dictum.png"
+  install -Dm755 "${srcdir}/oyant" "${pkgdir}/usr/bin/oyant"
+  install -Dm644 "${srcdir}/oyant.png" "${pkgdir}/usr/share/icons/hicolor/256x256/apps/oyant.png"
 
   install -d "${pkgdir}/usr/share/applications"
-  cat > "${pkgdir}/usr/share/applications/dictum.desktop" <<DESKTOP
+  cat > "${pkgdir}/usr/share/applications/oyant.desktop" <<DESKTOP
 [Desktop Entry]
-Name=Dictum
+Name=Oyant
 Comment=Dictée vocale locale
-Exec=/usr/bin/dictum
-Icon=dictum
+Exec=/usr/bin/oyant
+Icon=oyant
 Type=Application
 Categories=Utility;Accessibility;
 DESKTOP

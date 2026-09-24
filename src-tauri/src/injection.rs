@@ -16,7 +16,7 @@
 /// ⛔ **Son defaut est ZERO, et il valait 50 ms jusqu'au 2026-09-18.** A 50 ms par caractere, une
 /// phrase de cent caracteres mettait **cinq secondes** a s'ecrire, ce que painteau a constate au
 /// premier essai reel sans pouvoir en identifier la cause. Pire, le libelle de l'ecran annoncait
-/// « le temps que Dictum attend **avant** de taper, pour laisser la fenetre redevenir active » :
+/// « le temps qu’Oyant attend **avant** de taper, pour laisser la fenetre redevenir active » :
 /// un reglage qui decrit une chose et en fait une autre est plus couteux qu'un reglage absent,
 /// puisqu'on le tourne dans le mauvais sens en croyant bien faire.
 ///
@@ -33,7 +33,7 @@ pub fn ecrire(texte: &str, delai_ms: u32) -> Result<(), String> {
 /// La fenetre dans laquelle le texte devrait atterrir, vue depuis notre propre interface.
 ///
 /// ⛔ **Existe pour le menu de l'icone, et pour lui seul.** Ouvrir ce menu donne le focus a
-/// Dictum : sans cette fonction, le texte serait injecte dans notre propre fenetre ou dans le
+/// Oyant : sans cette fonction, le texte serait injecte dans notre propre fenetre ou dans le
 /// vide. Le raccourci global, lui, ne touche jamais au focus, donc il ne s'en sert pas : y
 /// forcer un retour ecraserait un changement de fenetre deliberement fait pendant qu'on parle.
 pub fn fenetre_cible() -> Option<isize> {
@@ -89,7 +89,7 @@ mod implementation {
             if envoyes as usize != entrees.len() {
                 return Err(
                     "Windows a refusé la saisie. Une application au premier plan s'exécute \
-                     peut-être avec des droits plus élevés que Dictum."
+                     peut-être avec des droits plus élevés qu’Oyant."
                         .to_string(),
                 );
             }
@@ -104,7 +104,7 @@ mod implementation {
     /// La premiere fenetre visible de l'ordre d'empilement qui n'est pas a nous.
     ///
     /// ⚠️ On parcourt l'ordre Z plutot que de lire simplement la fenetre active : au moment ou le
-    /// menu de l'icone est ouvert, la fenetre active EST la notre, donc la lire rendrait Dictum
+    /// menu de l'icone est ouvert, la fenetre active EST la notre, donc la lire rendrait Oyant
     /// lui-meme. Le premier voisin visible d'un autre processus est la meilleure approximation de
     /// « la ou l'utilisateur ecrivait juste avant ».
     pub fn fenetre_cible() -> Option<isize> {
@@ -325,7 +325,7 @@ mod tests {
     #[test]
     #[ignore = "ecrit dans l'application au premier plan de la machine"]
     fn injection_reelle() {
-        let texte = "Dictum : é à ç ù œ « » 한 🙂 fin.";
+        let texte = "Oyant : é à ç ù œ « » 한 🙂 fin.";
         println!("injection dans 3 secondes, placez le curseur ou vous voulez le texte");
         std::thread::sleep(std::time::Duration::from_secs(3));
 

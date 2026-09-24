@@ -12,10 +12,10 @@
 # Usage : scripts/essai-injection-x11.sh [repertoire-du-projet]
 set -euo pipefail
 
-PROJET="${1:-$HOME/dictum}"
+PROJET="${1:-$HOME/oyant}"
 ECRAN=":99"
-TEMOIN=$(mktemp /tmp/dictum-temoin-XXXX.txt)
-ATTENDU="Dictum : e a c u oe << >> fin."
+TEMOIN=$(mktemp /tmp/oyant-temoin-XXXX.txt)
+ATTENDU="Oyant : e a c u oe << >> fin."
 
 nettoyer() {
   [[ -n "${PID_XTERM:-}" ]] && kill "$PID_XTERM" 2>/dev/null || true
@@ -49,7 +49,7 @@ DISPLAY="$ECRAN" xdotool windowactivate --sync "$FENETRE" 2>/dev/null || true
 DISPLAY="$ECRAN" xdotool windowfocus "$FENETRE" 2>/dev/null || true
 echo "   fenetre $FENETRE au premier plan"
 
-echo "== injection par Dictum =="
+echo "== injection par Oyant =="
 cd "$PROJET/src-tauri"
 DISPLAY="$ECRAN" cargo test --quiet injection_reelle -- --ignored --nocapture 2>&1 | tail -5
 

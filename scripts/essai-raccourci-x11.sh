@@ -12,9 +12,9 @@
 # Usage : scripts/essai-raccourci-x11.sh [repertoire-du-projet]
 set -euo pipefail
 
-PROJET="${1:-$HOME/dictum}"
+PROJET="${1:-$HOME/oyant}"
 ECRAN=":99"
-JOURNAL=$(mktemp /tmp/dictum-journal-XXXX.txt)
+JOURNAL=$(mktemp /tmp/oyant-journal-XXXX.txt)
 
 nettoyer() {
   [[ -n "${PID_APP:-}" ]] && kill "$PID_APP" 2>/dev/null || true
@@ -31,8 +31,8 @@ for _ in $(seq 1 40); do
 done
 DISPLAY="$ECRAN" xdotool getdisplaygeometry >/dev/null 2>&1 || { echo "ECHEC : Xvfb n'a pas demarre"; exit 1; }
 
-echo "== lancement de Dictum =="
-BINAIRE="$PROJET/src-tauri/target/debug/dictum"
+echo "== lancement d’Oyant =="
+BINAIRE="$PROJET/src-tauri/target/debug/oyant"
 [[ -x "$BINAIRE" ]] || { echo "ECHEC : $BINAIRE introuvable, compiler d'abord"; exit 1; }
 DISPLAY="$ECRAN" "$BINAIRE" >"$JOURNAL" 2>&1 &
 PID_APP=$!
@@ -59,7 +59,7 @@ sleep 1
 DISPLAY="$ECRAN" xdotool keyup ctrl+alt+space
 sleep 3
 
-echo "== ce que Dictum a fait =="
+echo "== ce qu’Oyant a fait =="
 if grep -q 'dictée' "$JOURNAL"; then
   grep 'dictée' "$JOURNAL" | head -3
   echo "RESULTAT : le raccourci global atteint le coeur sous X11"

@@ -1,7 +1,7 @@
 """Refuse toute reference a un depot prive dans ce depot, qui est PUBLIC.
 
 ⛔ Le motif est concret : au moment de rendre ce depot public, quatre endroits designaient encore
-`docs/dictum-desktop.md du depot admin` comme la source d'autorite, et le README renvoyait a
+`docs/oyant-desktop.md du depot admin` comme la source d'autorite, et le README renvoyait a
 `painteau/Dictum`, devenu prive. Un lecteur tombait donc sur une reference qu'il ne pouvait pas
 suivre, et la structure interne de l'organisation fuyait sans aucun benefice.
 
@@ -20,14 +20,14 @@ import re
 import subprocess
 import sys
 
-# Motifs interdits, avec ce qu'il faut faire a la place. ⚠️ `dictum-web` et `breizhzion.com` sont
+# Motifs interdits, avec ce qu'il faut faire a la place. ⚠️ `oyant-web` et `breizhzion.com` sont
 # publics : ils ne sont pas dans cette liste, les citer est legitime.
 INTERDITS = [
     (r"depot admin", "ecrire le raisonnement sur place plutot que renvoyer a un depot prive"),
-    (r"docs/dictum-desktop\.md", "idem : ce fichier vit dans un depot prive"),
+    (r"docs/oyant-desktop\.md", "idem : ce fichier vit dans un depot prive"),
     (r"painteau/Dictum\b", "ce depot est prive et archive depuis le 2026-09-21"),
     (r"[A-Z]:[\\/]Git[\\/]admin", "chemin local d'un depot prive"),
-    (r"bzhzion/(hae-app|dictum-app|cedule|mome|breme|fourbi|polyptique|maeil|hucheor|ombra)\b",
+    (r"bzhzion/(hae-app|oyant-app|cedule|mome|breme|fourbi|polyptique|maeil|hucheor|ombra)\b",
      "depot prive du parc"),
 ]
 

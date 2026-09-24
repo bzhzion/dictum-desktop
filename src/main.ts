@@ -33,7 +33,7 @@ async function brancherCommandes(): Promise<void> {
     surErreur('reduire', fenetre.minimize());
   });
 
-  // ⚠️ `hide` et non `close` : Dictum vit dans la zone de notification. Fermer la fenetre doit la
+  // ⚠️ `hide` et non `close` : Oyant vit dans la zone de notification. Fermer la fenetre doit la
   // masquer, pas arreter la dictee, sinon le raccourci global cesserait de repondre alors que
   // l'icone est toujours la.
   document.getElementById('fermer')?.addEventListener('click', () => {
@@ -127,7 +127,7 @@ function poserCopyright(): void {
  *
  * ⛔ Ils remontent par un **événement** et jamais par une boîte de dialogue. Une modale volerait
  * le focus de l'application dans laquelle on est en train d'écrire, ce qui est exactement ce
- * qu'un outil de dictée ne doit jamais faire, et la fenêtre de Dictum est le plus souvent fermée
+ * qu'un outil de dictée ne doit jamais faire, et la fenêtre d’Oyant est le plus souvent fermée
  * au moment où le problème survient.
  *
  * ⚠️ Conséquence assumée : si la fenêtre est masquée, le message attend qu'on l'ouvre. L'icône

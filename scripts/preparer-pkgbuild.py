@@ -1,6 +1,6 @@
 """Prepare le repertoire de construction du paquet Arch a partir du gabarit versionne.
 
-`packaging/pacman/dictum-bin/PKGBUILD` porte `_pkgver=0.0.0`. Ce script en depose une copie dans
+`packaging/pacman/oyant-bin/PKGBUILD` porte `_pkgver=0.0.0`. Ce script en depose une copie dans
 le repertoire de construction avec la version du tag, a cote du binaire et de l'icone que
 `makepkg` trouvera sous leur nom exact.
 
@@ -14,7 +14,7 @@ gabarit, le script doit s'arreter la, et surtout pas produire un PKGBUILD qui se
 sans erreur en annoncant la mauvaise version.
 
 Usage :
-  python scripts/preparer-pkgbuild.py --version 0.1.0 --binaire diffusion/dictum-linux-x64 \
+  python scripts/preparer-pkgbuild.py --version 0.1.0 --binaire diffusion/oyant-linux-x64 \
       --destination construction-arch
 """
 
@@ -25,7 +25,7 @@ import sys
 from pathlib import Path
 
 RACINE = Path(__file__).resolve().parent.parent
-GABARIT = RACINE / "packaging" / "pacman" / "dictum-bin" / "PKGBUILD"
+GABARIT = RACINE / "packaging" / "pacman" / "oyant-bin" / "PKGBUILD"
 ICONE = RACINE / "src-tauri" / "icons" / "128x128@2x.png"
 ANCRE = re.compile(r"^_pkgver=.*$", re.MULTILINE)
 
@@ -62,8 +62,8 @@ def main() -> int:
     (options.destination / "PKGBUILD").write_text(
         remplace.replace("\r\n", "\n"), encoding="utf-8", newline=""
     )
-    shutil.copyfile(options.binaire, options.destination / "dictum")
-    shutil.copyfile(ICONE, options.destination / "dictum.png")
+    shutil.copyfile(options.binaire, options.destination / "oyant")
+    shutil.copyfile(ICONE, options.destination / "oyant.png")
 
     print(f"PKGBUILD prepare en {options.version} dans {options.destination}")
     return 0

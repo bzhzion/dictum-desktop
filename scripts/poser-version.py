@@ -6,7 +6,7 @@ pas `build.rs`** : le nom et la version du `.deb`, du `.pkg` et de l'installateu
 `tauri.conf.json`, et de lui seul.
 
 ⛔ **Sans cette etape, la panne est entierement silencieuse.** Le binaire s'annonce `0.1.0` et
-passe le controle de version, pendant que le `.deb` publie s'appelle `Dictum_0.0.0_amd64.deb` :
+passe le controle de version, pendant que le `.deb` publie s'appelle `Oyant_0.0.0_amd64.deb` :
 `apt` enregistre `0.0.0`, et **aucune mise a jour ne sera jamais proposee**, quel que soit le
 nombre de tags poses ensuite. Rien n'echoue, ni a la construction, ni a la publication.
 

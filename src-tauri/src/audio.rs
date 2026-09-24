@@ -367,7 +367,7 @@ pub fn echantillons_de_bip(frequence_hz: u32, duree_ms: u32, taux: u32) -> Vec<f
 /// Joue un bip et ne rend la main qu'une fois qu'il est fini.
 ///
 /// ⛔ **Bloquant, et c'est voulu pour le bip de DEBUT.** Le bip annonce « j'écoute
-/// maintenant » : s'il etait joue pendant que le microphone est ouvert, Dictum
+/// maintenant » : s'il etait joue pendant que le microphone est ouvert, Oyant
 /// **s'enregistrerait lui-meme**. La consequence n'est pas esthetique, elle est fonctionnelle :
 /// un bip capte depasse le seuil de silence, donc un appui accidentel declencherait une
 /// transcription au lieu d'etre reconnu comme « personne n'a parle ».

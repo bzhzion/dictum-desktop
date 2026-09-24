@@ -79,7 +79,7 @@ const GROUPES: Groupe[] = [
         cle: 'hotkey',
         type: 'texte',
         titre: 'Raccourci global',
-        aide: 'Les touches à maintenir enfoncées pour dicter. Dictum écoute tant que vous les gardez appuyées.',
+        aide: 'Les touches à maintenir enfoncées pour dicter. Oyant écoute tant que vous les gardez appuyées.',
       },
       {
         cle: 'microphone',
@@ -88,7 +88,7 @@ const GROUPES: Groupe[] = [
         // ⚠️ Rempli a l'execution en interrogeant le systeme, jamais ecrit ici : une liste de
         // materiel recopiee dans le code serait fausse sur toutes les machines sauf une.
         options: [],
-        aide: 'Celui que Dictum écoute. « Celui du système » suit automatiquement votre casque quand vous le branchez.',
+        aide: 'Celui qu’Oyant écoute. « Celui du système » suit automatiquement votre casque quand vous le branchez.',
       },
       {
         cle: 'min_duration_ms',
@@ -119,13 +119,13 @@ const GROUPES: Groupe[] = [
         min: 0,
         max: 1,
         pas: 0.005,
-        aide: 'À partir de quel niveau sonore Dictum considère que vous ne parlez plus. Plus la valeur est basse, plus il est sensible.',
+        aide: 'À partir de quel niveau sonore Oyant considère que vous ne parlez plus. Plus la valeur est basse, plus il est sensible.',
       },
       {
         cle: 'start_beep',
         type: 'bool',
         titre: 'Bip au début',
-        aide: 'Un son court confirme que Dictum s’est mis à écouter.',
+        aide: 'Un son court confirme qu’Oyant s’est mis à écouter.',
       },
       {
         cle: 'end_beep',
@@ -176,7 +176,7 @@ const GROUPES: Groupe[] = [
           ['es', 'Espagnol'],
           ['de', 'Allemand'],
         ],
-        aide: 'La langue que vous allez parler. En détection automatique, Dictum la devine au début de chaque dictée.',
+        aide: 'La langue que vous allez parler. En détection automatique, Oyant la devine au début de chaque dictée.',
       },
       {
         cle: 'threads',
@@ -196,7 +196,7 @@ const GROUPES: Groupe[] = [
         min: 0,
         max: 1,
         pas: 0.05,
-        aide: 'À 0, Dictum reste au plus près de ce qu’il a entendu. Plus haut, il s’autorise à deviner quand il hésite.',
+        aide: 'À 0, Oyant reste au plus près de ce qu’il a entendu. Plus haut, il s’autorise à deviner quand il hésite.',
       },
     ],
   },
@@ -215,7 +215,7 @@ const GROUPES: Groupe[] = [
         // ⛔ Le libellé disait « délai AVANT écriture » alors que le code attend après CHAQUE
         // caractère. Un réglage qui décrit autre chose que ce qu'il fait se tourne dans le
         // mauvais sens en croyant bien faire.
-        aide: 'Le temps que Dictum attend entre chaque touche. Laissez 0 sauf si une application perd des caractères quand le texte arrive trop vite, comme certains terminaux ou machines virtuelles. Attention : 50 ms sur une phrase de cent caractères, c’est cinq secondes.',
+        aide: 'Le temps qu’Oyant attend entre chaque touche. Laissez 0 sauf si une application perd des caractères quand le texte arrive trop vite, comme certains terminaux ou machines virtuelles. Attention : 50 ms sur une phrase de cent caractères, c’est cinq secondes.',
       },
       {
         cle: 'auto_enter',
@@ -272,7 +272,7 @@ const GROUPES: Groupe[] = [
         min: 0,
         max: 100,
         pas: 1,
-        aide: 'Combien de dictées récentes Dictum garde pour que vous puissiez les relire. 0 pour ne rien garder, ce qui efface aussi l’historique existant.',
+        aide: 'Combien de dictées récentes Oyant garde pour que vous puissiez les relire. 0 pour ne rien garder, ce qui efface aussi l’historique existant.',
       },
     ],
   },

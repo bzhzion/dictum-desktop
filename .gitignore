@@ -11,7 +11,7 @@
 *.local
 
 # Configuration et modeles locaux, jamais versionnes
-/.dictum-local/
+/.oyant-local/
 *.bin
 
 # Secrets

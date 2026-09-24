@@ -263,7 +263,7 @@ export async function chargerModeles(): Promise<void> {
 // ── Sur quoi l'ordinateur calcule ──────────────────────────────────────────────────────────────
 //
 // ⛔ **C'est un CHOIX, pas une liste a gerer** (arbitre par painteau le 2026-09-17). On coche
-// une option, Dictum installe ce qu'il faut et s'en sert. La question posee a l'utilisateur est
+// une option, Oyant installe ce qu'il faut et s'en sert. La question posee a l'utilisateur est
 // « sur quoi votre ordinateur calcule-t-il », pas « quel binaire voulez-vous administrer ».
 //
 // ⚠️ Une option indisponible est montree quand meme, avec sa raison, contrairement au menu
@@ -292,7 +292,7 @@ function libelleMoteur(m: EtatMoteur): string {
   if (installationEnCours === m.identifiant) return 'Installation…';
   if (!m.disponible) return 'Indisponible';
   // ⛔ Une accélération promise qui ne se charge pas doit se voir AVANT tout le reste : c'est le
-  // seul cas où Dictum fonctionne tout en faisant le contraire de ce que l'écran annonce.
+  // seul cas où Oyant fonctionne tout en faisant le contraire de ce que l'écran annonce.
   if (m.installe && m.acceleration_confirmee === false) return 'Ne démarre pas';
   if (m.actif) return 'Utilisé';
   if (m.installe) return m.embarque ? 'Fourni' : 'Installé';
@@ -427,8 +427,8 @@ async function choisirMoteur(m: EtatMoteur): Promise<void> {
 
       dire(
         prechauffe
-          ? `Dictum calcule maintenant sur : ${m.nom.toLowerCase()}. La carte est prête.`
-          : `Dictum calcule maintenant sur : ${m.nom.toLowerCase()}.`,
+          ? `Oyant calcule maintenant sur : ${m.nom.toLowerCase()}. La carte est prête.`
+          : `Oyant calcule maintenant sur : ${m.nom.toLowerCase()}.`,
       );
     } finally {
       // ⚠️ `finally` : sur echec aussi, l'ecran doit revenir a l'etat REEL. Sinon la

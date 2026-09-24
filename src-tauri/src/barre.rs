@@ -1,4 +1,4 @@
-//! Icone de la zone de notification : c'est la que Dictum vit reellement.
+//! Icone de la zone de notification : c'est la qu’Oyant vit reellement.
 //!
 //! La fenetre n'est qu'une facette de l'application, convoquee depuis ici. Fermer la fenetre ne
 //! doit donc jamais arreter le programme, sans quoi le raccourci global cesserait de repondre
@@ -62,10 +62,10 @@ impl Etat {
     /// encombree, une infobulle qui dirait seulement « Pret » ne designerait rien.
     fn infobulle(self) -> &'static str {
         match self {
-            Etat::Repos => "Dictum : prêt",
-            Etat::Ecoute => "Dictum : écoute",
-            Etat::Enregistrement => "Dictum : enregistrement",
-            Etat::Transcription => "Dictum : transcription en cours",
+            Etat::Repos => "Oyant : prêt",
+            Etat::Ecoute => "Oyant : écoute",
+            Etat::Enregistrement => "Oyant : enregistrement",
+            Etat::Transcription => "Oyant : transcription en cours",
         }
     }
 }
@@ -99,7 +99,7 @@ pub const ARRETER: &str = "Arrêter la dictée";
 pub struct EntreeDictee(pub Mutex<Option<MenuItem<tauri::Wry>>>);
 
 pub fn installer(app: &AppHandle) -> tauri::Result<()> {
-    let ouvrir = MenuItem::with_id(app, "ouvrir", "Ouvrir Dictum", true, None::<&str>)?;
+    let ouvrir = MenuItem::with_id(app, "ouvrir", "Ouvrir Oyant", true, None::<&str>)?;
     // ⛔ Le menu ne porte QUE des actions (arbitre par painteau le 2026-09-17), et « Dicter » est
     // la premiere qui existe. Les reglages restent dans l'ecran de reglages.
     let dicter = MenuItem::with_id(app, "dicter", DICTER, true, None::<&str>)?;
@@ -125,7 +125,7 @@ pub fn installer(app: &AppHandle) -> tauri::Result<()> {
             // de la zone de notification de Windows 11 (le chevron qui replie les icones) ne
             // delivre pas la meme sequence qu'un clic sur une icone epinglee : filtrer sur
             // `Up` seul rendait le clic totalement inerte depuis le debordement, verifie le
-            // 2026-09-17, alors que l'entree « Ouvrir Dictum » du menu, qui appelle la MEME
+            // 2026-09-17, alors que l'entree « Ouvrir Oyant » du menu, qui appelle la MEME
             // fonction, fonctionnait. C'est ce qui a permis de situer le defaut dans
             // l'evenement et pas dans l'ouverture de la fenetre.
             //
@@ -142,7 +142,7 @@ pub fn installer(app: &AppHandle) -> tauri::Result<()> {
         .on_menu_event(|app, evenement| match evenement.id().as_ref() {
             "ouvrir" => montrer_fenetre(app),
             "dicter" => crate::dictee::basculer(app),
-            // Seul chemin qui arrete reellement Dictum. La croix de la fenetre, elle, masque.
+            // Seul chemin qui arrete reellement Oyant. La croix de la fenetre, elle, masque.
             "quitter" => app.exit(0),
             _ => {}
         })
@@ -257,7 +257,7 @@ mod tests {
             Etat::Transcription,
         ] {
             assert!(
-                etat.infobulle().starts_with("Dictum"),
+                etat.infobulle().starts_with("Oyant"),
                 "{etat:?} : {}",
                 etat.infobulle()
             );

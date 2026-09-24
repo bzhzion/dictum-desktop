@@ -4,7 +4,7 @@
 Telecharge l'archive officielle de whisper.cpp, verifie son empreinte, et n'en extrait que le
 jeu minimal necessaire dans `src-tauri/moteur/`, que Tauri embarque comme ressource.
 
-⛔ **Pourquoi embarquer plutot que telecharger au premier lancement.** Dictum promet une dictee
+⛔ **Pourquoi embarquer plutot que telecharger au premier lancement.** Oyant promet une dictee
 entierement locale : une application qui doit appeler GitHub pour fonctionner *du tout*
 contredirait sa propre promesse. Embarque, il marche a la sortie de l'installation, sans reseau,
 sans verification d'empreinte a l'execution, sans ecran « moteur non installe ». Toute cette
@@ -24,7 +24,7 @@ passage une licence a porter.
 
 ⚠️ **`vcomp140.dll` n'est PAS dans l'archive amont** et n'est pas garanti sur une machine neuve :
 il vient du redistribuable Visual C++. Le moteur ne demarre pas sans lui, et le message de
-Windows ne le nomme pas. Dictum le detecte a l'execution et le dit ; voir `moteur.rs`.
+Windows ne le nomme pas. Oyant le detecte a l'execution et le dit ; voir `moteur.rs`.
 
 Usage :
     python scripts/preparer-moteur-embarque.py            # prepare si besoin

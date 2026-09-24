@@ -1,5 +1,5 @@
 [package]
-name = "dictum"
+name = "oyant"
 version = "0.0.0"
 edition = "2024"
 rust-version = "1.85"
@@ -7,7 +7,7 @@ description = "Dictee vocale locale, multiplateforme"
 publish = false
 
 [[bin]]
-name = "dictum"
+name = "oyant"
 path = "src/main.rs"
 
 [build-dependencies]
@@ -29,7 +29,7 @@ zip = { version = "7.2.0", default-features = false, features = ["deflate"] }
 # Capture microphone. Multiplateforme des le depart : WASAPI, CoreAudio et ALSA derriere une
 # seule interface, ce qui evite d'ecrire une capture Windows en dur puis de la reecrire.
 cpal = "0.18.2"
-# Raccourci global. ⚠️ Il doit rendre l'appui ET le relachement : le raccourci de Dictum se tient
+# Raccourci global. ⚠️ Il doit rendre l'appui ET le relachement : le raccourci d’Oyant se tient
 # enfonce, il ne se declenche pas d'une pression.
 tauri-plugin-global-shortcut = "2.3.2"
 tauri-plugin-clipboard-manager = "2.3.3"

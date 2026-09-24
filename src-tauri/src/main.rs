@@ -1,11 +1,11 @@
-//! Dictum, dictee vocale locale et multiplateforme.
+//! Oyant, dictee vocale locale et multiplateforme.
 //!
 //! Etape 1 : la fenetre existe, sans barre de titre. Elle ne dicte rien encore.
 //!
 //! ⚠️ **Pas de `windows_subsystem = "windows"`, et c'est un arbitrage, pas un oubli.**
 //! Ce drapeau supprime la console attachee sur Windows, ce qui evite qu'une fenetre noire
 //! clignote au lancement depuis la zone de notification. Mais il **coupe aussi la sortie
-//! standard**, donc `dictum.exe --version` n'afficherait plus rien : le workflow de publication,
+//! standard**, donc `oyant.exe --version` n'afficherait plus rien : le workflow de publication,
 //! qui compare cette sortie au tag, echouerait, et le mode ligne de commande de l'inventaire
 //! serait muet. Le vrai correctif est d'attacher la console du parent quand des arguments sont
 //! presents, ce qui appartient a l'etape 8. D'ici la, on garde une sortie qui fonctionne.
@@ -28,7 +28,7 @@ use tauri::Manager;
 use serde::Serialize;
 
 /// Version DERIVEE par `build.rs` depuis le tag git, jamais lue dans le manifeste.
-const VERSION: &str = env!("DICTUM_VERSION");
+const VERSION: &str = env!("OYANT_VERSION");
 
 /// Ce que la ligne de commande demande.
 ///
@@ -86,10 +86,10 @@ fn interpreter(arguments: &[String]) -> Demande {
     }
 }
 
-/// Analyse `dictum FICHIER [options]`.
+/// Analyse `oyant FICHIER [options]`.
 ///
 /// ⚠️ Une option qui attend une valeur et n'en trouve pas est **refusee** plutot que silencieuse.
-/// `dictum a.wav --model` sans valeur qui prendrait un defaut ferait transcrire avec un modele
+/// `oyant a.wav --model` sans valeur qui prendrait un defaut ferait transcrire avec un modele
 /// que l'utilisateur n'a pas demande, sans que rien ne le dise.
 fn transcription(arguments: &[String]) -> Demande {
     let mut demande = Demandetranscription {
@@ -161,8 +161,22 @@ fn appliquer_raccourci(app: tauri::AppHandle, libelle: String) -> Result<(), Str
 
 fn main() {
     let arguments: Vec<String> = std::env::args().skip(1).collect();
+    let demande = interpreter(&arguments);
 
-    match interpreter(&arguments) {
+    // ⛔ **Un seul appel, ici, et pas dans chaque branche.** L'interface et la ligne de commande
+    // lisent toutes les deux le repertoire de donnees ; brancher la reprise cote par cote ferait
+    // qu'une troisieme entree, un jour, l'oublierait. Pose au point de passage commun, elle ne
+    // peut plus l'etre par personne.
+    //
+    // ⚠️ Ecarte pour `--version` et `--help`, qui ne lisent rien et dont la sortie est comparee
+    // au tag par le workflow de publication, caractere pour caractere.
+    if !matches!(demande, Demande::Version | Demande::Aide) {
+        for fait in chemins::migrer_ancien_nom() {
+            eprintln!("{fait}");
+        }
+    }
+
+    match demande {
         Demande::Version => println!("{VERSION}"),
         Demande::Aide => aide(),
         Demande::Interface => interface(true),
@@ -177,16 +191,16 @@ fn main() {
             // Sur la sortie d'erreur et avec un code non nul : un argument mal ecrit dans un
             // script doit se voir, pas passer pour un succes.
             eprintln!("Unknown argument: {argument}");
-            eprintln!("Try `dictum --help`.");
+            eprintln!("Try `oyant --help`.");
             std::process::exit(2);
         }
     }
 }
 
 fn aide() {
-    println!("Dictum {VERSION}");
+    println!("Oyant {VERSION}");
     println!();
-    println!("Usage: dictum [FILE] [OPTIONS]");
+    println!("Usage: oyant [FILE] [OPTIONS]");
     println!();
     println!("  With no argument, opens the interface.");
     println!("  With a FILE, transcribes it and prints the text.");
@@ -204,7 +218,7 @@ fn aide() {
 /// Transcrit un fichier depuis la ligne de commande.
 ///
 /// ⚠️ **Les reglages du fichier de configuration servent de defauts**, et les options de la ligne
-/// de commande les remplacent. Sans ca, `dictum fichier.wav` se comporterait autrement que
+/// de commande les remplacent. Sans ca, `oyant fichier.wav` se comporterait autrement que
 /// l'interface sur la meme machine, ce qui rendrait tout diagnostic impossible.
 ///
 /// ⛔ **Chaque cause d'echec est nommee precisement.** « Le moteur n'est pas installe » et « le
@@ -255,7 +269,7 @@ fn transcrire(demande: &Demandetranscription) -> Result<(), String> {
             }
         }
         None => {
-            // Le texte sur la SORTIE STANDARD, le resume sur la sortie d'erreur : `dictum a.wav >
+            // Le texte sur la SORTIE STANDARD, le resume sur la sortie d'erreur : `oyant a.wav >
             // t.txt` doit donner le texte seul, pas le texte suivi d'une ligne de statistiques.
             println!("{}", resultat.texte);
             if !demande.silencieux {
@@ -330,7 +344,7 @@ fn interface(fenetre_visible: bool) {
         .setup(move |app| {
             barre::installer(app.handle())?;
 
-            // ⚠️ Un raccourci deja pris par une autre application ne doit pas empecher Dictum de
+            // ⚠️ Un raccourci deja pris par une autre application ne doit pas empecher Oyant de
             // demarrer : le reste du produit fonctionne, et c'est dans les reglages qu'on en
             // changera. On le dit, on continue.
             if let Err(message) = raccourci::installer(app.handle()) {
@@ -343,7 +357,7 @@ fn interface(fenetre_visible: bool) {
             Ok(())
         })
         .on_window_event(|fenetre, evenement| {
-            // ⚠️ Fermer la fenetre MASQUE au lieu de quitter. Dictum vit dans la zone de
+            // ⚠️ Fermer la fenetre MASQUE au lieu de quitter. Oyant vit dans la zone de
             // notification : arreter le programme parce que la fenetre se ferme couperait le
             // raccourci global alors que l'icone serait toujours la. Seul « Quitter » du menu
             // de l'icone arrete reellement l'application.
@@ -382,7 +396,7 @@ mod tests {
     }
 
     /// ⚠️ Cet argument est pose par le systeme au demarrage de session. S'il cessait d'etre
-    /// reconnu, Dictum sortirait en erreur a chaque ouverture de session **sans que personne ne
+    /// reconnu, Oyant sortirait en erreur a chaque ouverture de session **sans que personne ne
     /// voie le message**, et le demarrage automatique paraitrait simplement ne pas marcher.
     #[test]
     fn l_argument_de_demarrage_automatique_est_reconnu() {
@@ -392,7 +406,7 @@ mod tests {
     /// ⛔ **La surface de ligne de commande est en ANGLAIS**, l'interface graphique reste en
     /// francais. C'est la CLI qu'un public non francophone rencontrera en premier, et renommer un
     /// drapeau apres publication serait une rupture : celui du demarrage automatique est ecrit
-    /// dans la cle `Run` du systeme, donc un ancien nom encore inscrit ferait sortir Dictum en
+    /// dans la cle `Run` du systeme, donc un ancien nom encore inscrit ferait sortir Oyant en
     /// erreur a chaque ouverture de session, sans que personne ne voie le message.
     ///
     /// Ce test echoue donc si un drapeau accentue ou francais reapparait.
