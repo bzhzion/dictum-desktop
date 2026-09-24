@@ -40,6 +40,12 @@ et ce projet adhere au [Semantic Versioning](https://semver.org/lang/fr/).
   ✅ Trois tests, chacun **prouvé rouge par mutation** : filtre des majuscules retiré, ordre
   inversé, déduplication retirée.
 
+  ⚠️ **Premier passage livré rouge en CI, et l'erreur est de méthode** : j'avais lancé
+  `cargo test` et rien d'autre, alors que la CI lance aussi `cargo fmt --check` et `cargo clippy
+  --all-targets`. Clippy refusait l'affectation de champ après `Default::default()` dans deux des
+  nouveaux tests, corrigée en syntaxe de mise à jour de structure. **Lancer les tests ne vérifie
+  pas ce que la CI vérifie** : c'est la liste des étapes du workflow qui fait foi, pas l'habitude.
+
 ### Changed
 
 - **Le compteur du vocabulaire ne prétend plus compter ce qu'il ne compte pas.** Il annonçait

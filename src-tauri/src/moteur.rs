@@ -1540,7 +1540,10 @@ mod tests {
             substitution("nest ce pas", "n'est-ce pas ?"),
             substitution("cad", "c'est-à-dire"),
             // Une majuscule, mais bien trop de mots pour etre un terme.
-            substitution("formule", "Je vous prie d'agréer mes salutations distinguées"),
+            substitution(
+                "formule",
+                "Je vous prie d'agréer mes salutations distinguées",
+            ),
             // Une majuscule, peu de mots, mais trop long.
             substitution("long", &format!("A{}", "z".repeat(LONGUEUR_MAX_TERME))),
             // Vide apres nettoyage.
@@ -1556,9 +1559,11 @@ mod tests {
     /// devant ce qu'on a deduit pour lui.
     #[test]
     fn le_vocabulaire_saisi_passe_avant_les_termes_deduits() {
-        let mut reglages = crate::reglages::Reglages::default();
-        reglages.vocabulaire = vec!["Szczepański".to_string()];
-        reglages.substitutions = vec![substitution("lévotirox", "Lévothyrox")];
+        let reglages = crate::reglages::Reglages {
+            vocabulaire: vec!["Szczepański".to_string()],
+            substitutions: vec![substitution("lévotirox", "Lévothyrox")],
+            ..Default::default()
+        };
 
         let prompt = prompt_des_reglages(&reglages).expect("un prompt est attendu");
         assert_eq!(prompt, "Szczepański, Lévothyrox");
@@ -1567,12 +1572,14 @@ mod tests {
     /// Donner deux fois le meme terme au moteur gaspillerait le plafond pour rien.
     #[test]
     fn un_terme_present_des_deux_cotes_n_est_donne_qu_une_fois() {
-        let mut reglages = crate::reglages::Reglages::default();
-        reglages.vocabulaire = vec!["ECG".to_string()];
-        // ⚠️ « Ecg » porte une majuscule, donc il PASSE le filtre et atteint bien la
-        // deduplication. Une cible en minuscules aurait ete ecartee avant, et le test aurait ete
-        // vert sans jamais exercer ce qu'il pretend garder.
-        reglages.substitutions = vec![substitution("e c g", "Ecg")];
+        let reglages = crate::reglages::Reglages {
+            vocabulaire: vec!["ECG".to_string()],
+            // ⚠️ « Ecg » porte une majuscule, donc il PASSE le filtre et atteint bien la
+            // deduplication. Une cible en minuscules aurait ete ecartee avant, et le test aurait
+            // ete vert sans jamais exercer ce qu'il pretend garder.
+            substitutions: vec![substitution("e c g", "Ecg")],
+            ..Default::default()
+        };
 
         let prompt = prompt_des_reglages(&reglages).expect("un prompt est attendu");
         assert_eq!(prompt, "ECG");

@@ -213,7 +213,10 @@ fn aide() {
 fn transcrire(demande: &Demandetranscription) -> Result<(), String> {
     let reglages = reglages::lire_sans_application();
 
-    let modele_id = demande.modele.clone().unwrap_or_else(|| reglages.modele.clone());
+    let modele_id = demande
+        .modele
+        .clone()
+        .unwrap_or_else(|| reglages.modele.clone());
 
     // ⛔ **Une seule resolution pour la ligne de commande et pour la dictee.** Ce calcul a deja
     // existe en double, et la copie d'ici ignorait la branche « moteur embarque » : elle annoncait
@@ -223,7 +226,10 @@ fn transcrire(demande: &Demandetranscription) -> Result<(), String> {
 
     // ⚠️ `clone()` et pas un deplacement : les reglages servent encore plus bas, pour deduire le
     // vocabulaire a donner au moteur.
-    let langue = demande.langue.clone().unwrap_or_else(|| reglages.langue.clone());
+    let langue = demande
+        .langue
+        .clone()
+        .unwrap_or_else(|| reglages.langue.clone());
     let audio = std::path::PathBuf::from(&demande.fichier);
 
     let resultat = moteur::transcrire(
