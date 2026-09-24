@@ -44,6 +44,12 @@ et ce projet adhere au [Semantic Versioning](https://semver.org/lang/fr/).
   ⚠️ **Ce fichier n'a pas été renommé non plus**, et c'est volontaire : ce qui est sorti sous le
   nom Dictum doit continuer à le dire. Réécrire l'historique n'est pas le documenter.
 
+  ⚠️ **Correction d'une affirmation de cette entrée** : j'ai d'abord écrit que GitHub ne
+  redirigeait pas le dépôt renommé, sur la foi d'un 404 mesuré dans les minutes qui suivaient.
+  **C'est faux** : la redirection fonctionne, elle n'est simplement pas immédiate. Corriger les
+  liens entrants reste utile, mais pour une autre raison — elle tombe si quelqu'un reprend
+  l'ancien nom.
+
   ⚠️ **« Oyant » commence par une voyelle, « Dictum » par une consonne.** Un remplacement de
   chaîne ne connaît pas cette différence : il a produit « de Oyant » et « que Oyant » à 21
   endroits, dont trois textes affichés dans les réglages. Corrigé séparément, parce qu'aucun
