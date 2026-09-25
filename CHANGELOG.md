@@ -23,7 +23,13 @@ et ce projet adhere au [Semantic Versioning](https://semver.org/lang/fr/).
   **Deux réglages et pas un**, à dessein : « accepter les connexions d'un téléphone » **ouvre** le
   service, « autoriser depuis le réseau local » le rend **joignable**. Les fondre aurait fait
   qu'accepter un téléphone expose au réseau du même geste, sans que personne ne l'ait demandé. Le
-  second est un réglage avancé, et son aide dit **jamais sur un wifi d'hôtel ou public**.
+  second porte un avertissement, **jamais sur un wifi d'hôtel ou public**.
+
+  ⛔ **Aucun des deux n'est un réglage avancé**, bien que le second porte cet avertissement : sans
+  lui **aucun** téléphone ne peut se connecter, et son absence ne produit pas d'erreur, seulement
+  une recherche qui ne trouve rien. Le cacher derrière la bascule des réglages avancés rendait la
+  fonctionnalité muette pour qui ne l'ouvre jamais, c'est-à-dire le cas normal. L'aide du premier
+  renvoie explicitement au second, pour la même raison.
 
   ⛔ **L'empreinte du certificat part dans l'annonce zeroconf**, et ce n'est pas un confort : sans
   elle le téléphone devrait faire confiance au premier certificat présenté, donc au premier
@@ -111,6 +117,20 @@ et ce projet adhere au [Semantic Versioning](https://semver.org/lang/fr/).
   `adresse_ecoute` et `code_visuel`. La garder « au cas où » aurait masqué la prochaine fonction
   réellement morte — et c'est exactement ce qui a permis de repérer que `empreinte_certificat`
   l'était encore, ce qui a conduit à l'exposer là où elle sert vraiment : le repli par QR.
+
+### Corrigé
+
+- ⛔ **L'empreinte du certificat était calculée sur le PEM**, et le téléphone n'aurait donc jamais
+  pu la reconnaître. Le PEM est une enveloppe de texte (en-têtes, base64, retours à la ligne tous
+  les 64 caractères) dont rien ne garantit la reproduction à l'identique d'une bibliothèque à
+  l'autre, et **iOS ne la fournit même pas** : `SecCertificateCopyData` rend le **DER**. Les deux
+  côtés auraient calculé des valeurs différentes, et l'appairage aurait échoué en accusant
+  l'épinglage, pour une raison qui n'a rien à voir avec la sécurité.
+
+  ⚠️ **La fonction rend désormais une erreur plutôt qu'une empreinte fausse** quand le PEM ne
+  contient aucun certificat : une empreinte calculée sur du vide se comparerait très bien à
+  elle-même. Un test le prouve, et le serveur refuse de démarrer dans ce cas au lieu d'annoncer une
+  empreinte qui ne désigne rien.
 
 ## [0.2.0] - 2026-09-25
 

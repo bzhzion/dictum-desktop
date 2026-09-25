@@ -232,7 +232,13 @@ pub fn demarrer_si_demande(app: &tauri::AppHandle) {
         }
     };
     let appaires = Arc::new(Mutex::new(charger_appaires()));
-    let empreinte = crate::reseau::empreinte_certificat(&identite.certificat_pem);
+    let empreinte = match crate::reseau::empreinte_certificat(&identite.certificat_pem) {
+        Ok(e) => e,
+        Err(message) => {
+            eprintln!("appairage : {message}");
+            return;
+        }
+    };
     // Canal des demandes : l'interface les affiche, et repond. ⚠️ Si personne ne le consomme,
     // `demander` conclut au refus — voir sa documentation.
     let (envoi, mut reception) = mpsc::channel::<DemandeAppairage>(4);
@@ -397,9 +403,7 @@ pub fn enregistrer_appaires(liste: &Appaires) -> Result<(), String> {
 #[tauri::command]
 pub fn reseau_empreinte() -> Result<String, String> {
     let identite = crate::reseau::identite_tls()?;
-    Ok(crate::reseau::empreinte_certificat(
-        &identite.certificat_pem,
-    ))
+    crate::reseau::empreinte_certificat(&identite.certificat_pem)
 }
 
 /// Les appareils autorises, pour l'ecran de reglages.

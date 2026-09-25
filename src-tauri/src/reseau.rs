@@ -178,9 +178,21 @@ pub fn identite_tls() -> Result<IdentiteTls, String> {
 
 /// Empreinte du certificat, celle que le telephone epingle.
 ///
-/// ⚠️ Calculee sur le PEM tel qu'il est servi, pour que les deux cotes comparent la meme chose.
-pub fn empreinte_certificat(certificat_pem: &str) -> String {
-    empreinte(certificat_pem.as_bytes())
+/// ⛔ **Calculee sur le DER et surtout PAS sur le PEM.** Le PEM est une enveloppe de texte :
+/// en-tetes, base64, retours a la ligne tous les 64 caracteres. Rien ne garantit que deux
+/// bibliotheques la reproduisent identiquement, et **iOS ne la fournit meme pas** —
+/// `SecCertificateCopyData` rend le DER. Hacher le PEM aurait donne deux empreintes differentes
+/// des deux cotes, donc un appairage qui echoue avec un message parlant de certificat non epingle,
+/// pour une raison qui n'a rien a voir avec la securite.
+///
+/// ⚠️ Rend une erreur plutot qu'une empreinte fausse si le PEM ne contient pas de certificat :
+/// une empreinte calculee sur du vide se comparerait tres bien a elle-meme.
+pub fn empreinte_certificat(certificat_pem: &str) -> Result<String, String> {
+    let der = rustls_pemfile::certs(&mut certificat_pem.as_bytes())
+        .next()
+        .ok_or("Aucun certificat dans le PEM.")?
+        .map_err(|e| format!("Certificat illisible : {e}"))?;
+    Ok(empreinte(der.as_ref()))
 }
 
 /// Un appareil autorise, tel qu'il est retenu sur l'ordinateur.
@@ -316,11 +328,20 @@ mod tests {
         assert!(!identite.cle_pem.is_empty());
         // ⚠️ L'empreinte doit etre stable pour un meme certificat : c'est elle que le telephone
         // epingle, donc la recalculer doit redonner la meme valeur.
-        let e1 = empreinte_certificat(&identite.certificat_pem);
-        assert_eq!(e1, empreinte_certificat(&identite.certificat_pem));
+        let e1 = empreinte_certificat(&identite.certificat_pem).expect("empreinte");
+        assert_eq!(
+            e1,
+            empreinte_certificat(&identite.certificat_pem).expect("empreinte")
+        );
         // Et deux machines differentes ne doivent pas se ressembler.
         let autre = fabriquer_identite_tls().expect("génération");
-        assert_ne!(e1, empreinte_certificat(&autre.certificat_pem));
+        assert_ne!(
+            e1,
+            empreinte_certificat(&autre.certificat_pem).expect("empreinte")
+        );
+        // ⛔ Calculee sur le DER : un PEM sans certificat doit ECHOUER, pas rendre une empreinte
+        // de vide qui se comparerait tres bien a elle-meme.
+        assert!(empreinte_certificat("pas un pem").is_err());
     }
 
     #[test]
