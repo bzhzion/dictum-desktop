@@ -9,6 +9,41 @@ et ce projet adhere au [Semantic Versioning](https://semver.org/lang/fr/).
 
 ### Ajouté
 
+- **Le serveur d'appairage, en service** (`serveur.rs`), et **l'exclusion `dead_code` posée plus
+  haut a été RETIRÉE** — c'était la condition annoncée. Rien n'est plus décoratif : `clippy -D
+  warnings` passe sans aucune exception.
+
+  **TLS avec certificat auto-signé épinglé**, WebSocket, poignée de main bornée. ⚠️ **Le serveur ne
+  DÉCIDE rien** : toute la règle vit dans `appairage::decider`, pure et testée à part. Les mélanger
+  aurait remis la sécurité dans une boucle asynchrone, où elle ne se teste qu'avec un vrai
+  téléphone — donc en pratique ne se teste pas.
+
+  ⛔ **Le consentement passe par un canal, pas par un rappel**, et c'est ce qui rend le tout
+  éprouvable **sans appareil** : quatre tests d'intégration montent le serveur sur un port libre,
+  s'y connectent en **vrai TLS avec épinglage**, en **vrai WebSocket**, et jouent l'utilisateur —
+  y compris quand il ne répond pas.
+
+  ⛔ **Trois façons de ne pas dire oui, une seule conclusion** : délai expiré, interface absente,
+  refus explicite. Une seule branche qui autoriserait par défaut rendrait tout le reste décoratif.
+  Un test couvre le cas « personne n'écoute ».
+
+  ⛔ **Une mauvaise version ne dérange même pas l'utilisateur** : elle est refusée **avant** la
+  demande d'autorisation, et un test vérifie qu'aucune demande n'a été émise. Le solliciter pour un
+  client qu'on ne sait pas interpréter, c'est l'habituer à accepter sans lire.
+
+  ⚠️ **Le vérificateur d'épinglage du côté client vit dans les tests**, à dessein : il documente ce
+  que le téléphone devra faire. Un client qui accepterait n'importe quel certificat rendrait tout
+  le TLS décoratif.
+
+  **Deux réglages, faux par défaut** : `network_enabled` et `network_all_interfaces`. ⛔ **Le filtre
+  est au démarrage** — tant que le premier est faux, **aucun port n'est lié**. Un serveur qu'on
+  ouvre puis qu'on « protège » plus loin est un serveur ouvert.
+
+  ⛔ **Piège de dépendance attrapé avant le premier build** : `rustls` 0.23 prend par défaut le
+  fournisseur `aws-lc-rs`, qui tire **CMake** et une chaîne C à installer sur les trois OS de la
+  CI. Mesuré à `cargo fetch`, corrigé en `default-features = false` + `ring`. Le découvrir à un
+  build vert sur une machine et rouge sur les deux autres aurait coûté bien plus cher.
+
 - **Le cœur de l'appairage téléphone ↔ ordinateur** (`src-tauri/src/reseau.rs`), première tranche
   de l'étape 11. Volontairement **sans aucun serveur** : ce sont les décisions qui se testent sans
   réseau, et le serveur viendra dessus. C'est ce qui permet de prouver ces règles par des tests
@@ -39,10 +74,12 @@ et ce projet adhere au [Semantic Versioning](https://semver.org/lang/fr/).
   **10 tests**, ⚠️ **prouvés rouges par mutation** : forcer l'écoute sur toutes les interfaces et
   retirer la déduplication font tomber exactement les deux tests qui les protègent.
 
-  ⛔ **Une exclusion `dead_code` datée est posée en tête de module**, avec ce qui la lève : rien
-  n'appelle encore ces fonctions, donc `clippy -D warnings` refuse le module, **et il a raison**.
-  Elle doit disparaître le jour où le serveur appelle `adresse_ecoute` et `code_visuel` — la garder
-  « au cas où » masquerait la prochaine fonction réellement morte.
+  ⛔ **Une exclusion `dead_code` datée avait été posée en tête de module**, avec ce qui la lève :
+  rien n'appelait encore ces fonctions, donc `clippy -D warnings` refusait le module, **et il avait
+  raison**. ✅ **Elle a été retirée dans la même livraison**, dès que le serveur a appelé
+  `adresse_ecoute` et `code_visuel`. La garder « au cas où » aurait masqué la prochaine fonction
+  réellement morte — et c'est exactement ce qui a permis de repérer que `empreinte_certificat`
+  l'était encore, ce qui a conduit à l'exposer là où elle sert vraiment : le repli par QR.
 
 ## [0.2.0] - 2026-09-25
 

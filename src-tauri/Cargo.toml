@@ -37,6 +37,39 @@ tauri-plugin-notification = "2.4.0"
 tar = "0.4.46"
 flate2 = "1.1.10"
 
+# ── Appairage telephone <-> ordinateur (etape 11) ─────────────────────────────
+#
+# ⚠️ `tokio` est declare EXPLICITEMENT bien que Tauri en tire deja un : dependre d'une caisse par
+# transitivite, c'est laisser une mise a jour de Tauri decider de notre version. Le parc a deja paye
+# ce genre d'implicite (voir la lecon sur `setup-node` saute « parce que la machine a deja Node »).
+tokio = { version = "1", features = ["rt-multi-thread", "net", "io-util", "macros", "sync", "time"] }
+# TLS. ⛔ `rustls` et pas `native-tls` : on EPINGLE notre propre certificat auto-signe a
+# l'appairage, donc les magasins de certificats du systeme ne servent a rien ici, et les faire
+# intervenir n'ajouterait que des facons d'echouer differemment selon l'OS.
+#
+# ⛔ `default-features = false` + `ring` est INDISPENSABLE, ce n'est pas une preference : par
+# defaut `rustls` 0.23 prend le fournisseur `aws-lc-rs`, qui tire `aws-lc-sys` et **CMake**, donc
+# une chaine de compilation C a installer sur les trois OS de la CI. Mesure du 2026-09-25 :
+# `cargo fetch` ajoutait `aws-lc-rs`, `aws-lc-sys`, `cmake` et `jobserver`. Le decouvrir au premier
+# build vert sur une machine et rouge sur les deux autres aurait coute bien plus cher.
+rustls = { version = "0.23", default-features = false, features = ["ring", "std", "tls12"] }
+tokio-rustls = { version = "0.26", default-features = false, features = ["ring", "tls12"] }
+# Generation du certificat auto-signe, a l'installation. Pur Rust, donc pas d'OpenSSL a trainer.
+rcgen = "0.13"
+# Lecture des PEM que `rcgen` produit, pour les donner a `rustls`.
+rustls-pemfile = "2"
+# WebSocket par-dessus le TLS ci-dessus.
+tokio-tungstenite = "0.24"
+# ⚠️ `futures-util` est necessaire pour lire/ecrire sur le flux WebSocket (`StreamExt`,
+# `SinkExt`) : `tokio-tungstenite` expose un `Stream`/`Sink` sans reexporter les extensions.
+futures-util = { version = "0.3", default-features = false, features = ["sink"] }
+# Decouverte zeroconf. ⚠️ Pur Rust volontairement : les liaisons vers le Bonjour d'Apple ou vers
+# Avahi imposeraient une dependance NATIVE differente par plateforme, exactement ce que la decision
+# « multiplateforme des le depart » cherche a eviter.
+mdns-sd = "0.21"
+# Defi d'appairage. ⛔ Doit venir d'un generateur cryptographique : un defi previsible se rejoue.
+rand = "0.9"
+
 # ⚠️ Uniquement sur Windows : l'injection au curseur y passe par `SendInput`. Ailleurs elle a une
 # autre implementation (voir `src/platform/mod.rs`), et lier cette caisse partout ferait echouer
 # la compilation des autres cibles pour une dependance qui ne les concerne pas.

@@ -10,6 +10,7 @@
 //! serait muet. Le vrai correctif est d'attacher la console du parent quand des arguments sont
 //! presents, ce qui appartient a l'etape 8. D'ici la, on garde une sortie qui fonctionne.
 
+mod appairage;
 mod audio;
 mod barre;
 mod chemins;
@@ -22,6 +23,7 @@ mod platform;
 mod raccourci;
 mod reglages;
 mod reseau;
+mod serveur;
 mod texte;
 
 use tauri::Manager;
@@ -318,6 +320,9 @@ fn interface(fenetre_visible: bool) {
             reglages::ecrire_reglages,
             reglages::chemin_reglages,
             reglages::reglages_par_defaut,
+            serveur::reseau_empreinte,
+            serveur::reseau_appareils,
+            serveur::reseau_revoquer,
             modeles::etat_modeles,
             modeles::telecharger_modele,
             modeles::verifier_modele,
@@ -351,6 +356,11 @@ fn interface(fenetre_visible: bool) {
             if let Err(message) = raccourci::installer(app.handle()) {
                 eprintln!("raccourci global : {message}");
             }
+
+            // ⛔ Ne lie AUCUN port tant que l'utilisateur ne l'a pas demandé : le filtre est dans
+            // `demarrer_si_demande`, au démarrage, et pas plus loin. Un serveur qu'on ouvre puis
+            // qu'on « protège » ensuite est un serveur ouvert.
+            serveur::demarrer_si_demande(app.handle());
 
             if !fenetre_visible && let Some(fenetre) = app.get_webview_window("main") {
                 let _ = fenetre.hide();

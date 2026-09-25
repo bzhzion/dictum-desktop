@@ -169,6 +169,23 @@ pub struct Reglages {
     /// chaque ouverture, et les lui replier a chaque fois serait une brimade.
     #[serde(rename = "show_advanced")]
     pub afficher_avances: bool,
+
+    /// Accepter qu'un telephone se connecte a cet ordinateur.
+    ///
+    /// ⛔ **Faux par defaut, et ce defaut est la moitie de la securite de cette fonction.** Le
+    /// serveur fait injecter du texte dans les applications de l'utilisateur : il ne s'ouvre que
+    /// parce que quelqu'un l'a demande, jamais parce qu'on l'a installe.
+    #[serde(rename = "network_enabled", default)]
+    pub reseau_actif: bool,
+
+    /// Ecouter sur toutes les interfaces au lieu de la seule boucle locale.
+    ///
+    /// ⛔ **Faux par defaut.** Regle deja appliquee a BeamMeUp et Hublot dans le parc : un service
+    /// local ne s'expose au reseau que sur un geste delibere. ⚠️ Tant qu'il est faux, aucun
+    /// telephone ne peut joindre l'ordinateur — c'est voulu, le defaut protege celui qui n'a rien
+    /// demande.
+    #[serde(rename = "network_all_interfaces", default)]
+    pub reseau_toutes_interfaces: bool,
 }
 
 impl Default for Reglages {
@@ -222,6 +239,9 @@ impl Default for Reglages {
             niveau_journal: "info".to_string(),
 
             afficher_avances: false,
+
+            reseau_actif: false,
+            reseau_toutes_interfaces: false,
         }
     }
 }

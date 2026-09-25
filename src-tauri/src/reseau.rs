@@ -22,21 +22,10 @@
 //! decisions qui se testent sans reseau. Le serveur viendra dessus, pas l'inverse — c'est ce qui
 //! permet de prouver ces regles par des tests plutot que par un appareil sous la main.
 
-// ⛔ EXCLUSION DATEE, a retirer avec le serveur (etape 11). Rien n'appelle encore ces fonctions,
-// donc `clippy -D warnings` refuse le module entier comme code mort, et il a raison : du code que
-// personne n'appelle n'est pas du code qui marche.
-//
-// ⚠️ Elle est ecrite ici plutot que contournee ailleurs, et avec ce qui la leve, parce que le
-// depot applique deja ce principe a ses reglages (`tests/reglages_utilises.rs`) : une exclusion
-// sans sa raison rend un controle rouge en permanence sur un choix assume, et **un controle
-// toujours rouge finit ignore**.
-//
-// ⛔ Le jour ou le serveur appelle `adresse_ecoute` et `code_visuel`, cette ligne doit DISPARAITRE.
-// La garder « au cas ou » masquerait la prochaine fonction reellement morte.
-#![allow(dead_code)]
-
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
+use std::path::PathBuf;
 
+use rand::RngCore;
 use sha2::{Digest, Sha256};
 
 /// Port d'ecoute. Fixe et non configurable : la decouverte annonce le port, et un port que
@@ -112,6 +101,86 @@ pub fn code_visuel(empreinte_client: &str, defi_hote: &[u8]) -> String {
     // ce code n'est pas un secret, il lie une demande a un appareil pendant une minute.
     let valeur = u16::from(resume[0]) << 8 | u16::from(resume[1]);
     format!("{:04}", valeur % 10_000)
+}
+
+/// Un defi d'appairage, tire a chaque demande.
+///
+/// ⛔ **Doit venir d'un generateur CRYPTOGRAPHIQUE.** Un defi previsible laisse calculer a l'avance
+/// le code a quatre chiffres qui sera affiche, donc preparer une demande qui « tombe juste » —
+/// exactement ce que ce code est cense empecher.
+pub fn defi() -> [u8; 32] {
+    let mut octets = [0u8; 32];
+    rand::rng().fill_bytes(&mut octets);
+    octets
+}
+
+/// Ou vit le certificat auto-signe de cette machine.
+pub fn chemin_certificat() -> Result<PathBuf, String> {
+    Ok(crate::chemins::configuration()?.join("reseau-certificat.pem"))
+}
+
+/// Ou vit sa cle privee.
+///
+/// ⚠️ **Fichier distinct du certificat**, pour que la cle ne parte jamais par accident avec lui :
+/// le certificat s'affiche, se compare, se montre dans un QR ; la cle ne sort jamais de la machine.
+pub fn chemin_cle() -> Result<PathBuf, String> {
+    Ok(crate::chemins::configuration()?.join("reseau-cle.pem"))
+}
+
+/// Le certificat et sa cle, au format PEM.
+pub struct IdentiteTls {
+    pub certificat_pem: String,
+    pub cle_pem: String,
+}
+
+/// Fabrique une identite TLS auto-signee pour cette machine.
+///
+/// ⛔ **Auto-signe et EPINGLE, ce n'est pas un pis-aller.** Aucune autorite publique ne peut signer
+/// un certificat pour une adresse de reseau local qui change d'un wifi a l'autre. Ce qui protege
+/// ici n'est pas une chaine de confiance, c'est que le telephone retienne **cette** empreinte au
+/// moment de l'appairage et refuse toute autre ensuite.
+///
+/// ⚠️ **Les noms sont volontairement pauvres** : ce certificat n'identifie pas un domaine, il porte
+/// une cle. Y mettre le nom de la machine ferait fuiter le nom de l'ordinateur de l'utilisateur a
+/// quiconque sonde le port.
+pub fn fabriquer_identite_tls() -> Result<IdentiteTls, String> {
+    let certifie = rcgen::generate_simple_self_signed(vec!["oyant.local".to_string()])
+        .map_err(|erreur| format!("Certificat impossible à générer : {erreur}"))?;
+    Ok(IdentiteTls {
+        certificat_pem: certifie.cert.pem(),
+        cle_pem: certifie.key_pair.serialize_pem(),
+    })
+}
+
+/// Charge l'identite TLS, en la fabriquant au premier appel.
+///
+/// ⚠️ **Idempotent** : deux appels rendent la meme identite, sans quoi chaque redemarrage
+/// invaliderait tous les appairages deja faits — le telephone a epingle une empreinte, pas un
+/// serveur.
+pub fn identite_tls() -> Result<IdentiteTls, String> {
+    let (c, k) = (chemin_certificat()?, chemin_cle()?);
+    if c.is_file() && k.is_file() {
+        return Ok(IdentiteTls {
+            certificat_pem: std::fs::read_to_string(&c)
+                .map_err(|e| format!("Certificat illisible : {e}"))?,
+            cle_pem: std::fs::read_to_string(&k).map_err(|e| format!("Clé illisible : {e}"))?,
+        });
+    }
+    let identite = fabriquer_identite_tls()?;
+    if let Some(parent) = c.parent() {
+        std::fs::create_dir_all(parent).map_err(|e| format!("Répertoire impossible : {e}"))?;
+    }
+    std::fs::write(&c, &identite.certificat_pem)
+        .map_err(|e| format!("Certificat non écrit : {e}"))?;
+    std::fs::write(&k, &identite.cle_pem).map_err(|e| format!("Clé non écrite : {e}"))?;
+    Ok(identite)
+}
+
+/// Empreinte du certificat, celle que le telephone epingle.
+///
+/// ⚠️ Calculee sur le PEM tel qu'il est servi, pour que les deux cotes comparent la meme chose.
+pub fn empreinte_certificat(certificat_pem: &str) -> String {
+    empreinte(certificat_pem.as_bytes())
 }
 
 /// Un appareil autorise, tel qu'il est retenu sur l'ordinateur.
@@ -226,6 +295,42 @@ mod tests {
         // Et le meme appareil sur un autre defi donne autre chose : un code vu une fois ne se
         // rejoue pas.
         assert_ne!(a, code_visuel(&empreinte(b"telephone-a"), b"autre-defi"));
+    }
+
+    #[test]
+    fn deux_defis_ne_sont_jamais_les_memes() {
+        // ⛔ Un defi previsible laisse calculer a l'avance le code a quatre chiffres, donc preparer
+        // une demande qui « tombe juste ». C'est le seul test qui protege cette propriete.
+        let (a, b) = (defi(), defi());
+        assert_ne!(a, b);
+        assert_ne!(
+            a, [0u8; 32],
+            "un defi nul trahirait un generateur non initialise"
+        );
+    }
+
+    #[test]
+    fn le_certificat_est_utilisable_et_son_empreinte_stable() {
+        let identite = fabriquer_identite_tls().expect("génération");
+        assert!(identite.certificat_pem.contains("BEGIN CERTIFICATE"));
+        assert!(!identite.cle_pem.is_empty());
+        // ⚠️ L'empreinte doit etre stable pour un meme certificat : c'est elle que le telephone
+        // epingle, donc la recalculer doit redonner la meme valeur.
+        let e1 = empreinte_certificat(&identite.certificat_pem);
+        assert_eq!(e1, empreinte_certificat(&identite.certificat_pem));
+        // Et deux machines differentes ne doivent pas se ressembler.
+        let autre = fabriquer_identite_tls().expect("génération");
+        assert_ne!(e1, empreinte_certificat(&autre.certificat_pem));
+    }
+
+    #[test]
+    fn la_cle_privee_ne_vit_pas_avec_le_certificat() {
+        // ⛔ Deux fichiers distincts, pour que la cle ne parte jamais par accident avec le
+        // certificat — lui s'affiche, se compare, se montre dans un QR.
+        let (c, k) = (chemin_certificat(), chemin_cle());
+        if let (Ok(c), Ok(k)) = (c, k) {
+            assert_ne!(c, k);
+        }
     }
 
     #[test]
