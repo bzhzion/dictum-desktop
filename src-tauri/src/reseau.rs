@@ -89,9 +89,15 @@ pub fn empreintes_egales(a: &str, b: &str) -> bool {
 /// il attend une demande, il dit oui. Le nombre est ce qui lie la demande affichee a l'appareil
 /// qu'on a en main.
 ///
-/// ⚠️ **Derives et non tires au hasard separement** : les deux cotes doivent afficher le meme sans
-/// se l'echanger en clair, donc ils le calculent chacun a partir de ce qu'ils connaissent tous les
-/// deux. Un nombre transmis serait un nombre qu'un tiers peut lire, donc rejouer.
+/// ⚠️ **Le telephone ne le recalcule PAS, l'hote le lui envoie** dans `AutorisationDemandee`, et
+/// c'est une description de ce qui est ecrit, pas un ideal. Ce qui rend ce choix tenable est que
+/// **le canal est deja du TLS epingle** : le nombre ne circule donc jamais en clair, et surtout il
+/// est propre a UNE connexion. Deux demandes simultanees portent deux nombres differents, chacun
+/// vers son propre telephone, donc accepter la mauvaise fenetre se voit.
+///
+/// ⛔ **Il est derive et non tire au hasard** pour rester reproductible cote hote, notamment quand
+/// la meme demande est reaffichee. Il n'est PAS un secret : il lie une demande a un appareil
+/// pendant une minute, rien de plus.
 pub fn code_visuel(empreinte_client: &str, defi_hote: &[u8]) -> String {
     let mut h = Sha256::new();
     h.update(empreinte_client.as_bytes());

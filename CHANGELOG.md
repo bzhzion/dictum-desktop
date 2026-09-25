@@ -120,6 +120,13 @@ et ce projet adhere au [Semantic Versioning](https://semver.org/lang/fr/).
 
 ### Corrigé
 
+- ⚠️ **Le commentaire de `code_visuel` décrivait un idéal et pas le code** : il affirmait que les
+  deux côtés calculent le nombre chacun de leur côté, alors que **le téléphone le reçoit de
+  l'hôte**, qui seul connaît le défi. Ce qui rend ce choix tenable n'est donc pas une dérivation
+  symétrique mais le fait que **le canal est déjà du TLS épinglé** et que le nombre est propre à
+  une connexion. Corrigé pour dire ce qui est écrit, parce qu'un commentaire faux fait raisonner
+  faux sur la sécurité qu'il prétend expliquer.
+
 - ⛔ **L'empreinte du certificat était calculée sur le PEM**, et le téléphone n'aurait donc jamais
   pu la reconnaître. Le PEM est une enveloppe de texte (en-têtes, base64, retours à la ligne tous
   les 64 caractères) dont rien ne garantit la reproduction à l'identique d'une bibliothèque à
