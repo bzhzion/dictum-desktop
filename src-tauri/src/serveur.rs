@@ -223,7 +223,8 @@ pub fn demarrer_si_demande(app: &tauri::AppHandle) {
     if !reglages.reseau_actif {
         return;
     }
-    let adresse = crate::reseau::adresse_ecoute(reglages.reseau_toutes_interfaces);
+    let joignable = reglages.reseau_toutes_interfaces;
+    let adresse = crate::reseau::adresse_ecoute(joignable);
     let identite = match crate::reseau::identite_tls() {
         Ok(i) => i,
         Err(message) => {
@@ -266,6 +267,17 @@ pub fn demarrer_si_demande(app: &tauri::AppHandle) {
         match servir(adresse, identite, appaires, envoi).await {
             Ok((reelle, _)) => {
                 eprintln!("appairage : à l'écoute sur {reelle}");
+                // ⛔ On n'annonce QUE si l'ordinateur est joignable. Annoncer une ecoute limitee a
+                // la boucle locale ferait TROUVER l'ordinateur par le telephone, puis echouer la
+                // connexion : l'utilisateur verrait son ordinateur dans la liste et conclurait a
+                // un probleme d'appairage ou de certificat, alors qu'il lui manque simplement une
+                // case. Ne rien trouver est un symptome honnete, trouver et ne pas joindre non.
+                if !joignable {
+                    eprintln!(
+                        "appairage : à l'écoute en local seulement, pas d'annonce sur le réseau"
+                    );
+                    return;
+                }
                 // ⚠️ L'annonce vient APRES l'ecoute : annoncer un port qui n'ecoute pas encore
                 // ferait echouer la premiere tentative de connexion, et ce genre d'echec se lit
                 // comme « ca ne marche pas » plutot que comme une course.

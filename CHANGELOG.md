@@ -120,6 +120,13 @@ et ce projet adhere au [Semantic Versioning](https://semver.org/lang/fr/).
 
 ### Corrigé
 
+- ⛔ **L'ordinateur s'annonçait sur le réseau même quand il n'écoutait que sur la boucle locale.**
+  Avec « accepter les connexions d'un téléphone » coché mais pas « autoriser depuis le réseau
+  local », le téléphone **trouvait** l'ordinateur et échouait ensuite à s'y connecter. C'est le
+  pire des deux symptômes : ne rien trouver est honnête et renvoie vers le réseau ou les réglages,
+  trouver sans joindre envoie chercher une panne d'appairage ou de certificat qui n'existe pas.
+  L'annonce est maintenant conditionnée à la même case que l'écoute.
+
 - ⚠️ **Le commentaire de `code_visuel` décrivait un idéal et pas le code** : il affirmait que les
   deux côtés calculent le nombre chacun de leur côté, alors que **le téléphone le reçoit de
   l'hôte**, qui seul connaît le défi. Ce qui rend ce choix tenable n'est donc pas une dérivation
