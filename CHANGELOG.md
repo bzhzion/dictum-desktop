@@ -7,6 +7,43 @@ et ce projet adhere au [Semantic Versioning](https://semver.org/lang/fr/).
 
 ## [Unreleased]
 
+### Ajouté
+
+- **Le cœur de l'appairage téléphone ↔ ordinateur** (`src-tauri/src/reseau.rs`), première tranche
+  de l'étape 11. Volontairement **sans aucun serveur** : ce sont les décisions qui se testent sans
+  réseau, et le serveur viendra dessus. C'est ce qui permet de prouver ces règles par des tests
+  plutôt que par un téléphone sous la main.
+
+  ⛔ **Le pire cas de ce module n'est pas une panne**, c'est quelqu'un qui tape du texte arbitraire
+  dans l'ordinateur de l'utilisateur, et sa voix en clair sur le wifi. Tout en découle.
+
+  **Trois choix du protocole de `justmakeQ` sont refusés ici**, parce que son pire cas à lui est de
+  déranger une conduite de spectacle : le clair (`ws://`), l'absence de nombre à faire
+  correspondre, et surtout **une identité que le client déclare lui-même**. Ce dernier signifie
+  qu'une fois un appareil autorisé, **n'importe qui peut se faire passer pour lui** en renvoyant la
+  même valeur. Ici l'identité est l'**empreinte d'une clé publique**, et le nom ne sert qu'à
+  l'affichage.
+
+  ⛔ **Écoute sur la boucle locale par défaut**, toutes interfaces jamais sans geste délibéré,
+  règle déjà appliquée à BeamMeUp et Hublot. ⚠️ Le défaut est donc **inutilisable pour un
+  téléphone, et c'est voulu** : il protège celui qui n'a rien demandé.
+
+  **Les quatre chiffres sont dérivés, pas transmis** : les deux côtés les calculent depuis ce
+  qu'ils connaissent tous les deux, sans quoi un tiers pourrait les lire et les rejouer. Un test
+  vérifie que deux appareils qui demandent en même temps n'affichent pas le même nombre — c'est
+  tout l'intérêt de la fonction.
+
+  ⚠️ **Le réappairage ne duplique pas**, et c'est un test à part : un doublon rendrait la
+  révocation inopérante, ce qui est pire que ne pas révoquer du tout.
+
+  **10 tests**, ⚠️ **prouvés rouges par mutation** : forcer l'écoute sur toutes les interfaces et
+  retirer la déduplication font tomber exactement les deux tests qui les protègent.
+
+  ⛔ **Une exclusion `dead_code` datée est posée en tête de module**, avec ce qui la lève : rien
+  n'appelle encore ces fonctions, donc `clippy -D warnings` refuse le module, **et il a raison**.
+  Elle doit disparaître le jour où le serveur appelle `adresse_ecoute` et `code_visuel` — la garder
+  « au cas où » masquerait la prochaine fonction réellement morte.
+
 ## [0.2.0] - 2026-09-25
 
 ### Added

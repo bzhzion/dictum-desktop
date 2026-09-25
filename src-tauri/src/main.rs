@@ -21,6 +21,7 @@ mod moteur;
 mod platform;
 mod raccourci;
 mod reglages;
+mod reseau;
 mod texte;
 
 use tauri::Manager;
