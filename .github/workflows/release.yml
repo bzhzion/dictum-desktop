@@ -47,7 +47,7 @@ jobs:
           - { nom: macos, cible: macos-arm64, binaire: oyant, runner: macos-latest }
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           # ⚠️ Obligatoire : sans l'historique complet et les tags, le `git describe` de build.rs
           # ne voit rien et le binaire s'annoncerait avec la version du manifeste, soit 0.0.0.
@@ -133,7 +133,7 @@ jobs:
           echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
 
       - name: Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: 20
 
@@ -363,7 +363,7 @@ jobs:
     if: github.ref_type == 'tag'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: actions/download-artifact@v4
         with:
           name: oyant-linux-x64

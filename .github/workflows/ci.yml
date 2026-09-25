@@ -44,7 +44,7 @@ jobs:
           - { nom: macos, runner: macos-latest }
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       # ── Outillage, pas garanti present sur les machines maison ──────────────────────
       # Motifs repris tels quels de hae-app, qui compile du Tauri sur ces memes machines.
@@ -129,7 +129,7 @@ jobs:
           echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
 
       - name: Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         # ⚠️ Sur un runner self-hosted macOS, ceci exige `AGENT_TOOLSDIRECTORY` dans le fichier
         # `.env` du runner : sans lui le script d'installation retombe sur
         # /Users/runner/hostedtoolcache, chemin des runners GitHub heberges, et echoue en
