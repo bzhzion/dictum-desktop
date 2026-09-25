@@ -232,6 +232,7 @@ pub fn demarrer_si_demande(app: &tauri::AppHandle) {
         }
     };
     let appaires = Arc::new(Mutex::new(charger_appaires()));
+    let empreinte = crate::reseau::empreinte_certificat(&identite.certificat_pem);
     // Canal des demandes : l'interface les affiche, et repond. ⚠️ Si personne ne le consomme,
     // `demander` conclut au refus — voir sa documentation.
     let (envoi, mut reception) = mpsc::channel::<DemandeAppairage>(4);
@@ -239,23 +240,122 @@ pub fn demarrer_si_demande(app: &tauri::AppHandle) {
     let poignee = app.clone();
     tauri::async_runtime::spawn(async move {
         while let Some(demande) = reception.recv().await {
-            // L'interface affiche nom + code, et repond par la commande `reseau_repondre`.
+            // ⛔ La demande est MISE EN ATTENTE, pas refusee tout de suite : c'est l'ecran qui
+            // repond, par `reseau_repondre`. Si personne ne repond, le delai de `demander` finit
+            // par conclure au refus — le silence refuse, il n'autorise jamais.
+            let identifiant = demande.code.clone();
+            en_attente()
+                .lock()
+                .expect("verrou des demandes")
+                .insert(identifiant.clone(), demande.reponse);
             let _ = tauri::Emitter::emit(
                 &poignee,
                 "appairage-demande",
-                serde_json::json!({ "nom": demande.nom, "code": demande.code }),
+                serde_json::json!({ "id": identifiant, "nom": demande.nom, "code": demande.code }),
             );
-            // ⛔ Tant qu'aucun ecran ne repond, on refuse plutot que d'attendre indefiniment.
-            let _ = demande.reponse.send(false);
         }
     });
 
     tauri::async_runtime::spawn(async move {
         match servir(adresse, identite, appaires, envoi).await {
-            Ok((reelle, _)) => eprintln!("appairage : à l'écoute sur {reelle}"),
+            Ok((reelle, _)) => {
+                eprintln!("appairage : à l'écoute sur {reelle}");
+                // ⚠️ L'annonce vient APRES l'ecoute : annoncer un port qui n'ecoute pas encore
+                // ferait echouer la premiere tentative de connexion, et ce genre d'echec se lit
+                // comme « ca ne marche pas » plutot que comme une course.
+                match annoncer(reelle.port(), &empreinte) {
+                    // Le demon est garde vivant par la tache : le laisser tomber retirerait
+                    // l'annonce du reseau aussitot.
+                    Ok(demon) => {
+                        eprintln!("appairage : annoncé en {TYPE_SERVICE}");
+                        std::mem::forget(demon);
+                    }
+                    Err(message) => eprintln!("appairage : {message}"),
+                }
+            }
             Err(message) => eprintln!("appairage : {message}"),
         }
     });
+}
+
+/// Les demandes qui attendent une reponse de l'ecran, par code.
+///
+/// ⚠️ Un `Mutex` de la bibliotheque standard et non de tokio : il n'est tenu que le temps d'une
+/// insertion ou d'un retrait, jamais a travers un `await`.
+fn en_attente()
+-> &'static std::sync::Mutex<std::collections::HashMap<String, oneshot::Sender<bool>>> {
+    static DEMANDES: std::sync::OnceLock<
+        std::sync::Mutex<std::collections::HashMap<String, oneshot::Sender<bool>>>,
+    > = std::sync::OnceLock::new();
+    DEMANDES.get_or_init(Default::default)
+}
+
+/// Reponse de l'utilisateur a une demande d'appairage.
+///
+/// ⛔ **C'est la seule facon d'autoriser**, et elle part de la machine qui recevra les frappes.
+/// Rend `false` si la demande a deja expire : l'ecran ne doit pas laisser croire qu'un appairage
+/// a reussi quand le telephone a deja renonce.
+#[tauri::command]
+pub fn reseau_repondre(id: String, accepte: bool) -> bool {
+    let Some(repondeur) = en_attente()
+        .lock()
+        .expect("verrou des demandes")
+        .remove(&id)
+    else {
+        return false;
+    };
+    repondeur.send(accepte).is_ok()
+}
+
+/// Type de service zeroconf annonce sur le reseau local.
+///
+/// ⚠️ **Un type DECLARE, et pas une enumeration de tout ce qui passe.** C'est ce qui evite
+/// l'autorisation « multicast » d'Apple : `NSBonjourServices` declare ce type, et le telephone n'a
+/// alors besoin que de `NSLocalNetworkUsageDescription`. Verifie sur `justmakeq-app`, qui declare
+/// les deux et aucune autorisation multicast.
+pub const TYPE_SERVICE: &str = "_oyant._tcp.local.";
+
+/// Annonce cet ordinateur sur le reseau local.
+///
+/// ⛔ **L'empreinte du certificat part dans l'annonce.** C'est elle que le telephone epingle avant
+/// meme d'ouvrir la connexion : sans elle il devrait faire confiance au premier certificat
+/// presente, ce qui laisserait n'importe qui sur le wifi se placer au milieu du tout premier
+/// appairage — le seul moment ou il n'y a encore rien a comparer.
+///
+/// ⚠️ **L'annonce ne rend pas joignable** : elle dit seulement « je suis la ». Tant que
+/// `reseau_toutes_interfaces` est faux, le port reste sur la boucle locale et l'annonce ne mene
+/// nulle part. Les deux reglages sont distincts a dessein.
+fn annoncer(port: u16, empreinte: &str) -> Result<mdns_sd::ServiceDaemon, String> {
+    let demon =
+        mdns_sd::ServiceDaemon::new().map_err(|e| format!("Découverte indisponible : {e}"))?;
+    let machine = hostname_court();
+    let service = mdns_sd::ServiceInfo::new(
+        TYPE_SERVICE,
+        &machine,
+        &format!("{machine}.local."),
+        (),
+        port,
+        &[
+            ("empreinte", empreinte),
+            ("version", crate::appairage::VERSION_PROTOCOLE),
+        ][..],
+    )
+    .map_err(|e| format!("Annonce impossible : {e}"))?
+    .enable_addr_auto();
+    demon
+        .register(service)
+        .map_err(|e| format!("Annonce refusée : {e}"))?;
+    Ok(demon)
+}
+
+/// Nom de la machine, tel qu'il s'affichera sur le telephone.
+///
+/// ⚠️ Rend un nom neutre plutot que d'echouer : l'appairage ne doit pas dependre d'une variable
+/// d'environnement absente.
+fn hostname_court() -> String {
+    std::env::var("COMPUTERNAME")
+        .or_else(|_| std::env::var("HOSTNAME"))
+        .unwrap_or_else(|_| "Oyant".to_string())
 }
 
 /// Ou vit la liste des appareils appaires.

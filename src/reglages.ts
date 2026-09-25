@@ -55,6 +55,13 @@ export type Reglages = {
   log_level: string;
 
   show_advanced: boolean;
+
+  /** Accepter qu'un téléphone se connecte. ⛔ Faux par défaut : tant qu'il l'est, aucun port
+   * n'est lié côté Rust. */
+  network_enabled: boolean;
+  /** Écouter au-delà de la boucle locale. ⚠️ Distinct du précédent à dessein : l'un ouvre le
+   * service, l'autre le rend joignable. */
+  network_all_interfaces: boolean;
 };
 
 type Base = { cle: keyof Reglages; titre: string; aide?: string; avance?: boolean };
@@ -273,6 +280,29 @@ const GROUPES: Groupe[] = [
         max: 100,
         pas: 1,
         aide: 'Combien de dictées récentes Oyant garde pour que vous puissiez les relire. 0 pour ne rien garder, ce qui efface aussi l’historique existant.',
+      },
+    ],
+  },
+  {
+    titre: 'Téléphone',
+    champs: [
+      {
+        cle: 'network_enabled',
+        type: 'bool',
+        titre: 'Accepter les connexions d’un téléphone',
+        // ⛔ Le libellé dit ce que ça OUVRE, pas ce que ça apporte. Une case qui promet un
+        // confort sans nommer ce qu'elle autorise se coche sans y penser.
+        aide: 'Permet à l’application Oyant sur votre téléphone de se connecter à cet ordinateur. Tant que c’est décoché, aucun port n’est ouvert. Chaque téléphone doit être accepté une fois, ici, avec un code à quatre chiffres.',
+      },
+      {
+        cle: 'network_all_interfaces',
+        type: 'bool',
+        avance: true,
+        titre: 'Autoriser depuis le réseau local',
+        // ⚠️ Deux réglages et pas un, à dessein : le premier ouvre le service, le second le rend
+        // joignable. Les fondre aurait fait qu'accepter les téléphones expose au réseau du même
+        // geste, sans que personne ne l'ait demandé.
+        aide: 'Sans ceci, Oyant n’écoute que sur cet ordinateur et aucun téléphone ne peut le joindre. Ne l’activez que sur un réseau de confiance : jamais sur un wifi d’hôtel ou public.',
       },
     ],
   },

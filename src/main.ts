@@ -4,6 +4,7 @@ import { invoke } from '@tauri-apps/api/core';
 
 import { brancherReglages } from './reglages';
 import { brancherModeles, brancherMoteurs } from './modeles';
+import { installerAppairage } from './appairage';
 
 type Etat = { version: string; plateforme: string; injection: string };
 
@@ -151,3 +152,8 @@ void brancherProblemesDeDictee();
 void brancherReglages();
 void brancherMoteurs();
 void brancherModeles();
+
+// Appairage. L'ecouteur d'evenement est pose ici et pas a l'affichage de la section : une demande
+// arrive quand le telephone la lance, pas quand l'utilisateur regarde le bon endroit.
+const zoneAppairage = document.getElementById('appairage');
+if (zoneAppairage) installerAppairage(zoneAppairage);

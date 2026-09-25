@@ -323,6 +323,7 @@ fn interface(fenetre_visible: bool) {
             serveur::reseau_empreinte,
             serveur::reseau_appareils,
             serveur::reseau_revoquer,
+            serveur::reseau_repondre,
             modeles::etat_modeles,
             modeles::telecharger_modele,
             modeles::verifier_modele,

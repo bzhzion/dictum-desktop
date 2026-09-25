@@ -9,6 +9,37 @@ et ce projet adhere au [Semantic Versioning](https://semver.org/lang/fr/).
 
 ### Ajouté
 
+- **L'écran d'appairage et la découverte sur le réseau local.** Un téléphone peut désormais
+  trouver cet ordinateur, et l'utilisateur peut l'autoriser — les deux moitiés qui manquaient.
+
+  ⛔ **L'autorisation se donne sur la machine qui recevra les frappes.** L'écran affiche le nom
+  déclaré, les **quatre chiffres**, et une consigne qui dit quoi **comparer** et non seulement quoi
+  faire : « n'acceptez que si votre téléphone affiche exactement le même nombre ». Écrire
+  « acceptez » seul ferait cliquer sans regarder, ce qui annulerait l'intérêt du code.
+
+  ⚠️ **L'écouteur d'événement est posé au chargement, pas à l'affichage de la section** : une
+  demande arrive quand le téléphone la lance, pas quand l'utilisateur regarde au bon endroit.
+
+  **Deux réglages et pas un**, à dessein : « accepter les connexions d'un téléphone » **ouvre** le
+  service, « autoriser depuis le réseau local » le rend **joignable**. Les fondre aurait fait
+  qu'accepter un téléphone expose au réseau du même geste, sans que personne ne l'ait demandé. Le
+  second est un réglage avancé, et son aide dit **jamais sur un wifi d'hôtel ou public**.
+
+  ⛔ **L'empreinte du certificat part dans l'annonce zeroconf**, et ce n'est pas un confort : sans
+  elle le téléphone devrait faire confiance au premier certificat présenté, donc au premier
+  appairage — **le seul moment où il n'a encore rien à comparer**, et donc le seul où quelqu'un
+  peut se placer au milieu.
+
+  ⚠️ **L'annonce vient APRÈS l'écoute** : annoncer un port qui n'écoute pas encore ferait échouer
+  la première tentative, et ce genre d'échec se lit comme « ça ne marche pas » plutôt que comme
+  une course.
+
+  ⚠️ **Un type de service déclaré** (`_oyant._tcp.local.`) et non une énumération de tout ce qui
+  passe : c'est ce qui évite l'autorisation « multicast » d'Apple côté téléphone.
+
+  ⛔ **Une réponse qui arrive trop tard le dit** : révoquer ou accepter une demande déjà expirée
+  affiche « la demande avait expiré », jamais un faux succès.
+
 - **Le serveur d'appairage, en service** (`serveur.rs`), et **l'exclusion `dead_code` posée plus
   haut a été RETIRÉE** — c'était la condition annoncée. Rien n'est plus décoratif : `clippy -D
   warnings` passe sans aucune exception.
