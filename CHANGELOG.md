@@ -7,6 +7,8 @@ et ce projet adhere au [Semantic Versioning](https://semver.org/lang/fr/).
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-09-25
+
 ### Added
 
 - **Le vocabulaire se remplit tout seul depuis les substitutions.** La cible d'une substitution,
