@@ -130,7 +130,7 @@ pub const MOTEURS: &[Moteur] = &[
         //
         // ⚠️ L'objet distant ne doit JAMAIS etre ecrase : l'empreinte ci-dessous est verifiee par
         // les installations deja faites. Une nouvelle version amont prend une nouvelle URL.
-        url: "https://dl.breizhzion.com/dictum-desktop/moteurs/dictum-moteur-windows-x64-vulkan-b5130.zip",
+        url: "https://dl.breizhzion.com/oyant-desktop/moteurs/oyant-moteur-windows-x64-vulkan-b5130.zip",
         taille: 20_955_915,
         empreinte: "efdcef4dfbc912e6080d042b3aa0881fd2a7d90b7a5fa4c45f2ce22e5674c7ab",
         // A plat, contrairement aux archives amont qui rangent tout sous `Release/`.

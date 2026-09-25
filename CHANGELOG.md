@@ -36,10 +36,20 @@ et ce projet adhere au [Semantic Versioning](https://semver.org/lang/fr/).
   version avant de migrer a des réglages neufs, et les remplacer par les anciens serait une perte
   silencieuse. Prouvé rouge par mutation, comme le déplacement lui-même.
 
-  ⚠️ **L'URL du moteur Vulkan n'a délibérément PAS été renommée.** Elle désigne un objet R2 qui
-  existe, et que le binaire 0.1.1 déjà installé chez des gens va chercher. La changer avant
-  d'avoir copié l'objet transformerait un téléchargement qui marche en 404. La règle appliquée
-  est **on copie vers le nouveau préfixe, on ne déplace jamais**.
+  ✅ **Les objets R2 ont été copiés et le code repointé le 2026-09-25** : le moteur Vulkan est
+  servi depuis `oyant-desktop/moteurs/oyant-moteur-windows-x64-vulkan-b5130.zip`.
+
+  ⛔ **Les anciens objets n'ont PAS été supprimés, et ne le seront pas** : le binaire 0.1.1 déjà
+  installé va chercher son moteur à l'ancienne adresse, et un objet R2 ne coûte presque rien.
+  **On copie vers le nouveau préfixe, on ne déplace jamais.**
+
+  ⚠️ **L'ETag est le mauvais instrument pour vérifier une copie R2.** Un objet déposé en
+  multipart porte un ETag en `-N` que la copie recalcule en MD5 simple : deux objets identiques
+  s'annoncent alors « différents », et on croit avoir cassé quelque chose. La preuve est venue
+  des empreintes que les manifestes portent déjà — MD5 pour les modèles, SHA-256 pour le moteur.
+
+  ⚠️ **La lecture publique du bucket rend 403**, il porte une règle d'origine : vérifier par
+  l'API S3, ce qui évite au passage de retélécharger 2,7 Go pour un contrôle.
 
   ⚠️ **Ce fichier n'a pas été renommé non plus**, et c'est volontaire : ce qui est sorti sous le
   nom Dictum doit continuer à le dire. Réécrire l'historique n'est pas le documenter.
