@@ -7,16 +7,70 @@ et ce projet adhere au [Semantic Versioning](https://semver.org/lang/fr/).
 
 ## [Unreleased]
 
-### Modifié
+### Added
+
+- **Le vocabulaire se remplit tout seul depuis les substitutions.** La cible d'une substitution,
+  quand elle ressemble à un terme et non à une tournure, est donnée au moteur avant la
+  transcription au même titre que le vocabulaire saisi à la main.
+
+  ⛔ **Le signal utile n'est PAS la sortie du moteur, et c'est tout l'arbitrage.** L'idée de
+  départ était de récolter les acronymes et les mots à casse mixte dans le texte transcrit. C'est
+  **circulaire** : la sortie ne contient que ce que le moteur a déjà su écrire, alors que les
+  termes qui ont besoin d'aide sont exactement ceux qui n'y apparaissent jamais. On aurait
+  renforcé précisément le cas qui n'en a pas besoin. La cible d'une substitution, elle, est un mot
+  que l'utilisateur a dû corriger à la main : c'est la meilleure liste des erreurs du moteur dont
+  on dispose, elle est non circulaire, et elle était déjà dans les réglages.
+
+  ⚠️ **Le filtre est volontairement prudent, et l'asymétrie des échecs le justifie.** Oublier un
+  terme ne coûte **rien** : la substitution continue de corriger le texte après coup, exactement
+  comme avant. Retenir à tort une tournure de ponctuation mange le budget du prompt et biaise le
+  moteur vers une expression que personne n'a prononcée. Entre les deux, on rate. D'où les trois
+  critères : au plus trois mots, au plus quarante caractères, et **au moins une majuscule**, qui
+  est ce qui sépare `Lévothyrox` ou `ECG` de `n'est-ce pas ?`.
+
+  ⛔ **La fusion vit dans UN point d'entrée, `prompt_des_reglages`, et pas chez les appelants.**
+  Il y en avait deux, la dictée et la ligne de commande, et un troisième aurait oublié la moitié
+  du vocabulaire sans que rien ne vire au rouge. Même famille que le repli branché écran par
+  écran : posé dans la fonction partagée, il ne peut plus être oublié par personne.
+
+  ⚠️ **L'ordre décide de ce qui survit à la troncature** : le vocabulaire saisi passe devant, les
+  termes déduits comblent ce qui reste sous le plafond. L'inverse ferait tomber une liste choisie
+  à la main au profit d'un sous-produit.
+
+  ✅ Trois tests, chacun **prouvé rouge par mutation** : filtre des majuscules retiré, ordre
+  inversé, déduplication retirée.
+
+  ⚠️ **Premier passage livré rouge en CI, et l'erreur est de méthode** : j'avais lancé
+  `cargo test` et rien d'autre, alors que la CI lance aussi `cargo fmt --check` et `cargo clippy
+  --all-targets`. Clippy refusait l'affectation de champ après `Default::default()` dans deux des
+  nouveaux tests, corrigée en syntaxe de mise à jour de structure. **Lancer les tests ne vérifie
+  pas ce que la CI vérifie** : c'est la liste des étapes du workflow qui fait foi, pas l'habitude.
+
+- **Un test qui garde l'historique désactivé par défaut**, `l_historique_est_desactive_par_defaut`,
+  **prouvé rouge** en remettant la valeur de 20 qui avait cours jusqu'au 2026-09-18.
+
+  ⛔ **Le défaut était déjà à zéro depuis le 2026-09-18, mais rien ne le protégeait.** Sans ce
+  test, remettre une valeur « serviable » ne casse rien : l'application marche mieux du point de
+  vue de celui qui fait le changement, et le défaut de confidentialité ne se voit nulle part. C'est
+  exactement le genre de régression qu'aucune relecture n'attrape, parce qu'elle ressemble à une
+  amélioration. Le test vérifie aussi que `normaliser()` ne le relève pas en douce, comme il le
+  faisait quand la borne basse valait 1.
+
+- **`scripts/verifier-depot-public.py`, branché dans la CI et prouvé rouge.** Il refuse toute
+  référence à un dépôt privé dans les fichiers suivis par git, donc exactement ce qui est publié.
+
+  ⚠️ **Retirer ces références ne protège pas de leur retour, seul ce contrôle le fait** : elles
+  sont justes du point de vue de quelqu'un qui a les deux dépôts ouverts, et c'est précisément le
+  point de vue de celui qui écrit le commentaire. Le contrôle a d'ailleurs trouvé trois occurrences
+  que ma relecture avait manquées.
+
+### Changed
 
 - **`actions/checkout` et `actions/setup-node` passent en v7** dans les workflows : les versions
   posées déclaraient `using: node20`, déprécié et déjà forcé sur Node 24 par GitHub. Les quatre
   changements de rupture de ces majeures ont été lus et confrontés au parc, aucun ne s'y applique,
   et les 11 runners de l'org sont en 2.336.0 ou mieux, au-dessus du minimum 2.327.1 qu'exigent
   `checkout` v5 et `setup-node` v5. Vérifié par un build iOS réel avant propagation.
-
-
-### Changed
 
 - ⛔ **Le produit s'appelle désormais Oyant, et ce n'est pas un choix esthétique.** Une
   application **« Dictum - private voice to text »** existe déjà sur l'App Store (Factory Design
@@ -73,47 +127,6 @@ et ce projet adhere au [Semantic Versioning](https://semver.org/lang/fr/).
   chaîne ne connaît pas cette différence : il a produit « de Oyant » et « que Oyant » à 21
   endroits, dont trois textes affichés dans les réglages. Corrigé séparément, parce qu'aucun
   compilateur ne voit ce défaut-là.
-
-### Added
-
-- **Le vocabulaire se remplit tout seul depuis les substitutions.** La cible d'une substitution,
-  quand elle ressemble à un terme et non à une tournure, est donnée au moteur avant la
-  transcription au même titre que le vocabulaire saisi à la main.
-
-  ⛔ **Le signal utile n'est PAS la sortie du moteur, et c'est tout l'arbitrage.** L'idée de
-  départ était de récolter les acronymes et les mots à casse mixte dans le texte transcrit. C'est
-  **circulaire** : la sortie ne contient que ce que le moteur a déjà su écrire, alors que les
-  termes qui ont besoin d'aide sont exactement ceux qui n'y apparaissent jamais. On aurait
-  renforcé précisément le cas qui n'en a pas besoin. La cible d'une substitution, elle, est un mot
-  que l'utilisateur a dû corriger à la main : c'est la meilleure liste des erreurs du moteur dont
-  on dispose, elle est non circulaire, et elle était déjà dans les réglages.
-
-  ⚠️ **Le filtre est volontairement prudent, et l'asymétrie des échecs le justifie.** Oublier un
-  terme ne coûte **rien** : la substitution continue de corriger le texte après coup, exactement
-  comme avant. Retenir à tort une tournure de ponctuation mange le budget du prompt et biaise le
-  moteur vers une expression que personne n'a prononcée. Entre les deux, on rate. D'où les trois
-  critères : au plus trois mots, au plus quarante caractères, et **au moins une majuscule**, qui
-  est ce qui sépare `Lévothyrox` ou `ECG` de `n'est-ce pas ?`.
-
-  ⛔ **La fusion vit dans UN point d'entrée, `prompt_des_reglages`, et pas chez les appelants.**
-  Il y en avait deux, la dictée et la ligne de commande, et un troisième aurait oublié la moitié
-  du vocabulaire sans que rien ne vire au rouge. Même famille que le repli branché écran par
-  écran : posé dans la fonction partagée, il ne peut plus être oublié par personne.
-
-  ⚠️ **L'ordre décide de ce qui survit à la troncature** : le vocabulaire saisi passe devant, les
-  termes déduits comblent ce qui reste sous le plafond. L'inverse ferait tomber une liste choisie
-  à la main au profit d'un sous-produit.
-
-  ✅ Trois tests, chacun **prouvé rouge par mutation** : filtre des majuscules retiré, ordre
-  inversé, déduplication retirée.
-
-  ⚠️ **Premier passage livré rouge en CI, et l'erreur est de méthode** : j'avais lancé
-  `cargo test` et rien d'autre, alors que la CI lance aussi `cargo fmt --check` et `cargo clippy
-  --all-targets`. Clippy refusait l'affectation de champ après `Default::default()` dans deux des
-  nouveaux tests, corrigée en syntaxe de mise à jour de structure. **Lancer les tests ne vérifie
-  pas ce que la CI vérifie** : c'est la liste des étapes du workflow qui fait foi, pas l'habitude.
-
-### Changed
 
 - **Le compteur du vocabulaire ne prétend plus compter ce qu'il ne compte pas.** Il annonçait
   « X caractères sur 600 utilisés » en ne mesurant que les termes saisis, alors que les termes
@@ -183,21 +196,7 @@ et ce projet adhere au [Semantic Versioning](https://semver.org/lang/fr/).
   « Kowal » biaiserait le moteur vers un fragment inexistant, ce qui est pire que de ne pas donner
   l'entrée.
 
-
-
-### Ajouté
-
-- **Un test qui garde l'historique désactivé par défaut**, `l_historique_est_desactive_par_defaut`,
-  **prouvé rouge** en remettant la valeur de 20 qui avait cours jusqu'au 2026-09-18.
-
-  ⛔ **Le défaut était déjà à zéro depuis le 2026-09-18, mais rien ne le protégeait.** Sans ce
-  test, remettre une valeur « serviable » ne casse rien : l'application marche mieux du point de
-  vue de celui qui fait le changement, et le défaut de confidentialité ne se voit nulle part. C'est
-  exactement le genre de régression qu'aucune relecture n'attrape, parce qu'elle ressemble à une
-  amélioration. Le test vérifie aussi que `normaliser()` ne le relève pas en douce, comme il le
-  faisait quand la borne basse valait 1.
-
-### Corrigé
+### Fixed
 
 - **Le README laissait entendre que l'historique conserve par défaut**, alors que c'est l'inverse.
   L'inexactitude allait dans le sens qui nous dessert : rien n'est écrit tant que l'utilisateur ne
@@ -220,18 +219,6 @@ et ce projet adhere au [Semantic Versioning](https://semver.org/lang/fr/).
 
   Chaque explication a été rendue **autonome** : quand un choix technique mérite d'être justifié,
   le raisonnement s'écrit sur place.
-
-### Ajouté
-
-- **`scripts/verifier-depot-public.py`, branché dans la CI et prouvé rouge.** Il refuse toute
-  référence à un dépôt privé dans les fichiers suivis par git, donc exactement ce qui est publié.
-
-  ⚠️ **Retirer ces références ne protège pas de leur retour, seul ce contrôle le fait** : elles
-  sont justes du point de vue de quelqu'un qui a les deux dépôts ouverts, et c'est précisément le
-  point de vue de celui qui écrit le commentaire. Le contrôle a d'ailleurs trouvé trois occurrences
-  que ma relecture avait manquées.
-
-
 
 ## [0.1.1] - 2026-09-21
 
