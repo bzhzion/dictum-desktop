@@ -2810,6 +2810,7 @@ dependencies = [
 name = "oyant"
 version = "0.0.0"
 dependencies = [
+ "base64 0.22.1",
  "cpal",
  "enigo",
  "flate2",
@@ -2817,6 +2818,7 @@ dependencies = [
  "mdns-sd",
  "rand 0.9.5",
  "rcgen",
+ "ring",
  "rustls",
  "rustls-pemfile",
  "serde",

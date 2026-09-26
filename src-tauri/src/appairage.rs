@@ -12,14 +12,19 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::reseau::{Appaires, code_visuel, empreinte};
+use crate::reseau::{Appaires, code_visuel, empreinte, verifier_signature};
 
 /// Version du protocole, comparee STRICTEMENT.
 ///
 /// ⛔ **Refusee avant meme la demande d'autorisation**, motif repris de `justmakeQ`. Laisser entrer
 /// un client d'une autre version puis decouvrir qu'il se comporte de travers, c'est avoir deja
 /// demande a l'utilisateur d'autoriser quelque chose qu'on ne sait pas interpreter.
-pub const VERSION_PROTOCOLE: &str = "1";
+///
+/// ⛔ **Passee a `"2"` avec l'ajout de la preuve de possession.** Un telephone de l'ancienne
+/// version n'enverrait jamais de `Preuve` : le laisser entrer serait bloque plus tard par un delai
+/// d'attente illisible plutot que par un refus clair et immediat. Bureau et mobile montent
+/// ensemble ; un ancien de l'un ou l'autre cote est proprement rejete, jamais mal interprete.
+pub const VERSION_PROTOCOLE: &str = "2";
 
 /// Ce que le telephone envoie en premier.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -27,14 +32,32 @@ pub struct Bonjour {
     pub version: String,
     /// Nom affiche. ⚠️ Declare par le client, donc **jamais** utilise pour autoriser.
     pub nom: String,
-    /// Cle publique du telephone, encodee. C'est elle qui l'identifie.
+    /// Cle publique Ed25519 du telephone, en base64. ⚠️ **Depuis la version 2, c'est une VRAIE
+    /// cle publique et non plus un secret porteur** : elle n'autorise rien tant que le telephone
+    /// n'a pas prouve posseder la cle privee correspondante (voir `Preuve` et `verifier_preuve`).
     pub cle_publique: String,
+}
+
+/// Ce que le telephone envoie en second, une fois qu'il a recu le defi de l'hote.
+///
+/// ⛔ **C'est elle qui remplace le secret porteur.** Avant la version 2, presenter la meme
+/// `cle_publique` deux fois suffisait a rentrer. Desormais il faut, a CHAQUE connexion, signer un
+/// defi neuf avec la cle privee : une signature capturee sur un defi ne vaut plus rien sur un
+/// autre, donc l'observer une fois (par ex. dans un journal mal garde) ne donne aucun acces futur.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Preuve {
+    /// Signature Ed25519 du defi recu, en base64.
+    pub signature: String,
 }
 
 /// Ce que l'hote repond, et qui resume la decision prise.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum Reponse {
+    /// Premier message de l'hote : le defi a signer. ⚠️ Envoye des que `Bonjour` passe les
+    /// bornes et la version — avant meme de savoir si l'appareil est deja connu — pour que la
+    /// preuve de possession soit exigee dans TOUS les cas, connu ou non.
+    Defi { defi: String },
     /// Appareil deja appaire : la session s'ouvre sans rien demander a personne.
     Bienvenue { empreinte: String },
     /// Appareil inconnu : l'utilisateur doit accepter SUR L'ORDINATEUR, avec ce code sous les yeux.
@@ -52,6 +75,10 @@ pub enum Motif {
     VersionIncompatible,
     /// Le premier message n'est pas conforme, ou dépasse les bornes.
     MessageInvalide,
+    /// La signature du defi ne correspond pas a la cle publique declaree — ou n'a pas pu etre
+    /// lue. ⚠️ Regroupe volontairement les deux cas (voir `reseau::verifier_signature`) : une
+    /// raison plus precise renseignerait un attaquant sur ce qui a echoue, sans lui donner acces.
+    PreuveInvalide,
     /// Personne n'a repondu a la demande d'autorisation.
     ///
     /// ⛔ **Le silence REFUSE.** Une demande qui expire en autorisant serait un appairage qu'on
@@ -86,27 +113,72 @@ pub enum Consentement {
 const NOM_MAX: usize = 100;
 const CLE_MAX: usize = 1000;
 
-/// La decision, et rien d'autre.
+/// Borne sur le second message (la signature). ⚠️ Une signature Ed25519 encodee en base64 tient
+/// en une centaine de caracteres ; 200 laisse de la marge sans rouvrir la porte a un champ
+/// arbitrairement long avant toute verification cryptographique.
+const SIGNATURE_MAX: usize = 200;
+
+/// Verifie la version et les bornes de `Bonjour`, et REND LA REPONSE DE REFUS s'il y a lieu.
 ///
-/// ⚠️ **Pure** : pas d'entree/sortie, pas d'horloge, pas de reseau. C'est ce qui la rend
-/// testable — et c'est la seule raison pour laquelle les cas penibles (version fausse, silence de
-/// l'utilisateur, appareil revoque entre-temps) sont couverts.
-pub fn decider(bonjour: &Bonjour, contexte: &Contexte, consentement: Consentement) -> Reponse {
+/// ⛔ **Extrait de `decider` pour etre appele AVANT d'envoyer le defi.** Refuser une mauvaise
+/// version doit couter un aller-retour, pas deux : ca evite de faire signer quoi que ce soit a un
+/// client qu'on ne saura de toute facon pas interpreter. `decider` continue de l'appeler aussi,
+/// en defense en profondeur — les deux appels sont idempotents.
+pub fn verifier_entree(bonjour: &Bonjour) -> Option<Reponse> {
     // ⛔ La version AVANT tout le reste : on ne demande pas a l'utilisateur d'autoriser un client
     // qu'on ne saura pas interpreter ensuite.
     if bonjour.version != VERSION_PROTOCOLE {
-        return Reponse::Refus {
+        return Some(Reponse::Refus {
             motif: Motif::VersionIncompatible,
-        };
+        });
     }
     if bonjour.nom.is_empty()
         || bonjour.nom.len() > NOM_MAX
         || bonjour.cle_publique.is_empty()
         || bonjour.cle_publique.len() > CLE_MAX
     {
-        return Reponse::Refus {
+        return Some(Reponse::Refus {
             motif: Motif::MessageInvalide,
-        };
+        });
+    }
+    None
+}
+
+/// Verifie la preuve de possession (la signature du defi), et REND LA REPONSE DE REFUS si elle ne
+/// correspond pas.
+///
+/// ⛔ **C'est ELLE qui remplace le secret porteur.** Sans cet appel, un `Bonjour` portant une cle
+/// publique deja connue suffirait a entrer (exactement le defaut de justmakeQ) : desormais, il
+/// faut prouver posseder la cle privee correspondante, a chaque connexion, avant meme de savoir
+/// si l'appareil est deja autorise. Appelee AVANT tout le reste de `decider`.
+pub fn verifier_preuve(bonjour: &Bonjour, defi: &[u8], preuve: &Preuve) -> Option<Reponse> {
+    if preuve.signature.is_empty() || preuve.signature.len() > SIGNATURE_MAX {
+        return Some(Reponse::Refus {
+            motif: Motif::MessageInvalide,
+        });
+    }
+    if verifier_signature(&bonjour.cle_publique, defi, &preuve.signature) {
+        None
+    } else {
+        Some(Reponse::Refus {
+            motif: Motif::PreuveInvalide,
+        })
+    }
+}
+
+/// La decision, et rien d'autre.
+///
+/// ⚠️ **Pure** : pas d'entree/sortie, pas d'horloge, pas de reseau. C'est ce qui la rend
+/// testable — et c'est la seule raison pour laquelle les cas penibles (version fausse, silence de
+/// l'utilisateur, appareil revoque entre-temps) sont couverts.
+///
+/// ⛔ **N'est appelee, cote serveur, qu'APRES que `verifier_preuve` ait deja accepte la
+/// signature.** Cette fonction ne verifie plus elle-meme la possession de la cle : ce n'est pas un
+/// oubli, c'est le decoupage voulu (verifier_entree -> verifier_preuve -> decider), chacun pur et
+/// teste separement.
+pub fn decider(bonjour: &Bonjour, contexte: &Contexte, consentement: Consentement) -> Reponse {
+    if let Some(refus) = verifier_entree(bonjour) {
+        return refus;
     }
 
     let empreinte_client = empreinte(bonjour.cle_publique.as_bytes());
@@ -281,6 +353,95 @@ mod tests {
         assert!(
             matches!(r, Reponse::AutorisationDemandee { .. }),
             "un nom identique ne doit jamais suffire a entrer"
+        );
+    }
+
+    /// Genere une paire Ed25519 de test et rend (cle publique b64, paire).
+    fn paire_de_test() -> (String, ring::signature::Ed25519KeyPair) {
+        use base64::Engine;
+        use ring::signature::KeyPair;
+        let rng = ring::rand::SystemRandom::new();
+        let pkcs8 = ring::signature::Ed25519KeyPair::generate_pkcs8(&rng).expect("generation");
+        let paire = ring::signature::Ed25519KeyPair::from_pkcs8(pkcs8.as_ref()).expect("parsing");
+        let publique = base64::engine::general_purpose::STANDARD.encode(paire.public_key());
+        (publique, paire)
+    }
+
+    fn signer(paire: &ring::signature::Ed25519KeyPair, message: &[u8]) -> Preuve {
+        use base64::Engine;
+        Preuve {
+            signature: base64::engine::general_purpose::STANDARD.encode(paire.sign(message)),
+        }
+    }
+
+    #[test]
+    fn une_preuve_valide_ne_refuse_rien() {
+        let (_publique, paire) = paire_de_test();
+        let b = bonjour("iPhone", &_publique);
+        let preuve = signer(&paire, b"defi-du-serveur");
+        assert_eq!(verifier_preuve(&b, b"defi-du-serveur", &preuve), None);
+    }
+
+    #[test]
+    fn une_preuve_qui_ne_correspond_pas_a_la_cle_declaree_est_refusee() {
+        // ⛔ Le coeur du remplacement du secret porteur : declarer la cle publique de QUELQU'UN
+        // D'AUTRE, sans en posseder la cle privee, doit echouer ici — precisement le cas qu'un
+        // secret porteur ne pouvait pas empecher (presenter la meme chaine suffisait).
+        let (publique_a, _paire_a) = paire_de_test();
+        let (_publique_b, paire_b) = paire_de_test();
+        let b = bonjour("iPhone", &publique_a);
+        let preuve = signer(&paire_b, b"defi-du-serveur");
+        assert_eq!(
+            verifier_preuve(&b, b"defi-du-serveur", &preuve),
+            Some(Reponse::Refus {
+                motif: Motif::PreuveInvalide
+            })
+        );
+    }
+
+    #[test]
+    fn une_signature_capturee_ne_vaut_rien_sur_un_autre_defi() {
+        // ⛔ C'est precisement ce qu'un secret porteur ne peut pas offrir : une valeur observee
+        // une fois (par ex. dans un journal) ne redonne pas acces, puisque le prochain defi sera
+        // different et la signature ne portera plus dessus.
+        let (publique, paire) = paire_de_test();
+        let b = bonjour("iPhone", &publique);
+        let preuve = signer(&paire, b"ancien-defi");
+        assert_eq!(
+            verifier_preuve(&b, b"nouveau-defi", &preuve),
+            Some(Reponse::Refus {
+                motif: Motif::PreuveInvalide
+            })
+        );
+    }
+
+    #[test]
+    fn une_signature_vide_ou_trop_longue_est_un_message_invalide() {
+        let (publique, _paire) = paire_de_test();
+        let b = bonjour("iPhone", &publique);
+        assert_eq!(
+            verifier_preuve(
+                &b,
+                b"defi",
+                &Preuve {
+                    signature: String::new()
+                }
+            ),
+            Some(Reponse::Refus {
+                motif: Motif::MessageInvalide
+            })
+        );
+        assert_eq!(
+            verifier_preuve(
+                &b,
+                b"defi",
+                &Preuve {
+                    signature: "x".repeat(SIGNATURE_MAX + 1)
+                }
+            ),
+            Some(Reponse::Refus {
+                motif: Motif::MessageInvalide
+            })
         );
     }
 }

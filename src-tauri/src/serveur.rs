@@ -15,7 +15,10 @@ use tokio::net::TcpListener;
 use tokio::sync::{Mutex, mpsc, oneshot};
 use tokio_rustls::TlsAcceptor;
 
-use crate::appairage::{Bonjour, Consentement, Contexte, Motif, Reponse, decider};
+use crate::appairage::{
+    Bonjour, Consentement, Contexte, Motif, Preuve, Reponse, decider, verifier_entree,
+    verifier_preuve,
+};
 use crate::reseau::{Appaires, AppareilAppaire, DELAI_APPAIRAGE_S, IdentiteTls, defi};
 
 /// Ce que l'hote demande a l'utilisateur d'accepter.
@@ -80,6 +83,27 @@ pub async fn servir(
     Ok((reelle, tache))
 }
 
+/// Lit un message texte, avec le meme delai court sur CHAQUE message et pas seulement le premier.
+///
+/// ⛔ **Motif repris de justmakeQ, applique a chaque etape** : une connexion qui repond au premier
+/// message puis se tait sur le second immobiliserait la meme ressource, pour la meme raison.
+async fn lire_message<S>(ws: &mut tokio_tungstenite::WebSocketStream<S>) -> Result<String, String>
+where
+    S: tokio::io::AsyncRead + tokio::io::AsyncWrite + Unpin,
+{
+    let message = tokio::time::timeout(
+        std::time::Duration::from_secs(10),
+        futures_util::StreamExt::next(ws),
+    )
+    .await
+    .map_err(|_| "Message jamais arrivé.".to_string())?
+    .ok_or("Connexion fermée avant le message attendu.")?
+    .map_err(|e| format!("Message illisible : {e}"))?;
+    message
+        .into_text()
+        .map_err(|e| format!("Message non textuel : {e}"))
+}
+
 async fn servir_une_connexion(
     flux: tokio::net::TcpStream,
     acceptateur: TlsAcceptor,
@@ -94,20 +118,8 @@ async fn servir_une_connexion(
         .await
         .map_err(|e| format!("WebSocket refusé : {e}"))?;
 
-    // ⛔ Delai court sur le PREMIER message : une connexion qui s'ouvre et se tait immobilise une
-    // ressource sans jamais s'authentifier. Motif repris de justmakeQ.
-    let premier = tokio::time::timeout(
-        std::time::Duration::from_secs(10),
-        futures_util::StreamExt::next(&mut ws),
-    )
-    .await
-    .map_err(|_| "Premier message jamais arrivé.".to_string())?
-    .ok_or("Connexion fermée avant le premier message.")?
-    .map_err(|e| format!("Premier message illisible : {e}"))?;
-
-    let texte = premier
-        .into_text()
-        .map_err(|e| format!("Message non textuel : {e}"))?;
+    // ── 1. Bonjour ───────────────────────────────────────────────────────────────────────────
+    let texte = lire_message(&mut ws).await?;
     let bonjour: Bonjour = match serde_json::from_str(&texte) {
         Ok(b) => b,
         Err(_) => {
@@ -122,9 +134,49 @@ async fn servir_une_connexion(
         }
     };
 
-    let defi_courant = defi();
+    // ⛔ Version et bornes AVANT d'envoyer le moindre defi : refuser un client qu'on ne saura pas
+    // interpreter ne doit couter qu'un seul aller-retour, pas deux.
+    if let Some(refus) = verifier_entree(&bonjour) {
+        repondre(&mut ws, &refus).await;
+        return Ok(());
+    }
 
-    // Premiere passe : l'appareil est-il deja connu, ou faut-il demander ?
+    // ── 2. Defi -> Preuve ────────────────────────────────────────────────────────────────────
+    //
+    // ⛔ **Envoye a TOUT le monde, connu ou non.** C'est ce qui remplace le secret porteur : un
+    // appareil deja retenu ne rentre plus sur la seule presentation de sa cle publique, il doit
+    // reprouver la posseder a CHAQUE connexion.
+    use base64::Engine;
+    let decodeur = base64::engine::general_purpose::STANDARD;
+    let defi_courant = defi();
+    repondre(
+        &mut ws,
+        &Reponse::Defi {
+            defi: decodeur.encode(defi_courant),
+        },
+    )
+    .await;
+
+    let texte = lire_message(&mut ws).await?;
+    let preuve: Preuve = match serde_json::from_str(&texte) {
+        Ok(p) => p,
+        Err(_) => {
+            repondre(
+                &mut ws,
+                &Reponse::Refus {
+                    motif: Motif::MessageInvalide,
+                },
+            )
+            .await;
+            return Ok(());
+        }
+    };
+    if let Some(refus) = verifier_preuve(&bonjour, &defi_courant, &preuve) {
+        repondre(&mut ws, &refus).await;
+        return Ok(());
+    }
+
+    // ── 3. La decision, maintenant que la possession est prouvee ────────────────────────────
     let premiere = {
         let liste = appaires.lock().await;
         decider(
@@ -138,9 +190,18 @@ async fn servir_une_connexion(
     };
 
     let finale = match &premiere {
-        // Rien a demander : deja connu, ou deja refuse (version, bornes).
+        // Rien a demander : deja connu, ou deja refuse.
         Reponse::Bienvenue { .. } | Reponse::Refus { .. } => premiere,
-        Reponse::AutorisationDemandee { code } => {
+        Reponse::AutorisationDemandee { .. } => {
+            // ⛔ **Envoyee AU TELEPHONE des maintenant, avant d'attendre le consentement.** Sans
+            // ce message, le telephone n'avait jamais reçu son propre code : il attendait juste la
+            // reponse finale en silence, pendant que seul l'ordinateur affichait un code — ce qui
+            // viderait de son sens la consigne « comparez les deux nombres », affichee cote
+            // ordinateur, puisque rien n'apparaissait cote telephone pour la comparer.
+            repondre(&mut ws, &premiere).await;
+            let Reponse::AutorisationDemandee { code } = &premiere else {
+                unreachable!("filtre juste au-dessus")
+            };
             let consentement = demander(&demandes, &bonjour.nom, code).await;
             let liste = appaires.lock().await;
             decider(
@@ -152,6 +213,7 @@ async fn servir_une_connexion(
                 consentement,
             )
         }
+        Reponse::Defi { .. } => unreachable!("verifier_entree/verifier_preuve n'en rendent pas"),
     };
 
     // Un appairage accepte se retient, sinon l'utilisateur devrait redire oui a chaque connexion.
@@ -499,13 +561,42 @@ mod tests {
     }
 
     /// Joue une connexion complete : TLS epingle, WebSocket, un `bonjour`, et rend la reponse.
+    /// Genere une paire Ed25519 de test et rend (cle publique b64, paire).
+    ///
+    /// ⚠️ **C'est ce qu'un vrai telephone genere via CryptoKit** ; ces tests ne rejouent pas
+    /// CryptoKit (absent de ce poste), ils prouvent que le meme protocole marche avec de VRAIES
+    /// cles Ed25519 plutot que d'inventer une signature bidon qui ne prouverait rien.
+    fn paire_de_test() -> (String, ring::signature::Ed25519KeyPair) {
+        use base64::Engine;
+        use ring::signature::KeyPair;
+        let rng = ring::rand::SystemRandom::new();
+        let pkcs8 = ring::signature::Ed25519KeyPair::generate_pkcs8(&rng).expect("generation");
+        let paire = ring::signature::Ed25519KeyPair::from_pkcs8(pkcs8.as_ref()).expect("parsing");
+        let publique = base64::engine::general_purpose::STANDARD.encode(paire.public_key());
+        (publique, paire)
+    }
+
+    /// Joue une connexion complete : TLS epingle, WebSocket, `bonjour`, puis signe le defi recu et
+    /// continue de lire jusqu'a une reponse TERMINALE (`Bienvenue`/`Refus`).
+    ///
+    /// ⛔ **`Defi` et `AutorisationDemandee` sont transparents ici, exactement comme un vrai
+    /// telephone** : le premier se signe et se renvoie sans intervention du test, le second se
+    /// contente d'etre lu et ignore (c'est desormais le TELEPHONE qui le reçoit en premier, avant
+    /// meme que l'utilisateur ait repondu sur l'ordinateur — voir le commentaire dans
+    /// `servir_une_connexion`). Aucun test actuel n'a besoin d'inspecter son contenu : le code que
+    /// l'utilisateur compare est verifie via le canal `demandes`, pas via ce que le telephone
+    /// affiche.
     async fn dialoguer(
         adresse: std::net::SocketAddr,
         certificat_der: Vec<u8>,
         nom: &str,
-        cle: &str,
+        paire: &ring::signature::Ed25519KeyPair,
+        cle_publique: &str,
         version: &str,
     ) -> Reponse {
+        use base64::Engine;
+        let decodeur = base64::engine::general_purpose::STANDARD;
+
         let config = rustls::ClientConfig::builder()
             .dangerous()
             .with_custom_certificate_verifier(Arc::new(Epingle(certificat_der)))
@@ -518,19 +609,38 @@ mod tests {
             .await
             .expect("websocket");
 
-        let bonjour = serde_json::json!({ "version": version, "nom": nom, "cle_publique": cle });
+        let bonjour =
+            serde_json::json!({ "version": version, "nom": nom, "cle_publique": cle_publique });
         futures_util::SinkExt::send(
             &mut ws,
             tokio_tungstenite::tungstenite::Message::Text(bonjour.to_string()),
         )
         .await
-        .expect("envoi");
+        .expect("envoi bonjour");
 
-        let recu = futures_util::StreamExt::next(&mut ws)
-            .await
-            .expect("réponse")
-            .expect("trame");
-        serde_json::from_str(&recu.into_text().expect("texte")).expect("json")
+        loop {
+            let recu = futures_util::StreamExt::next(&mut ws)
+                .await
+                .expect("réponse")
+                .expect("trame");
+            let reponse: Reponse =
+                serde_json::from_str(&recu.into_text().expect("texte")).expect("json");
+            match reponse {
+                Reponse::Defi { defi } => {
+                    let defi_octets = decodeur.decode(&defi).expect("defi base64");
+                    let signature = decodeur.encode(paire.sign(&defi_octets));
+                    let preuve = serde_json::json!({ "signature": signature });
+                    futures_util::SinkExt::send(
+                        &mut ws,
+                        tokio_tungstenite::tungstenite::Message::Text(preuve.to_string()),
+                    )
+                    .await
+                    .expect("envoi preuve");
+                }
+                Reponse::AutorisationDemandee { .. } => continue,
+                terminale => return terminale,
+            }
+        }
     }
 
     /// Monte un serveur sur un port libre et rend de quoi lui parler.
@@ -562,6 +672,7 @@ mod tests {
     async fn un_inconnu_accepte_par_l_utilisateur_entre_et_reste_retenu() {
         let appaires = Arc::new(Mutex::new(Appaires::default()));
         let (adresse, der, mut demandes) = serveur_de_test(Arc::clone(&appaires)).await;
+        let (cle_publique, paire) = paire_de_test();
 
         // L'utilisateur dit oui. ⚠️ Le test joue son role, ce qui permet d'eprouver le serveur
         // sans appareil — y compris les cas ou il ne repond pas (voir les tests suivants).
@@ -576,36 +687,137 @@ mod tests {
             let _ = demande.reponse.send(true);
         });
 
-        let reponse = dialoguer(adresse, der, "iPhone", "cle-publique", VERSION_PROTOCOLE).await;
+        let reponse = dialoguer(
+            adresse,
+            der,
+            "iPhone",
+            &paire,
+            &cle_publique,
+            VERSION_PROTOCOLE,
+        )
+        .await;
         assert_eq!(
             reponse,
             Reponse::Bienvenue {
-                empreinte: empreinte(b"cle-publique")
+                empreinte: empreinte(cle_publique.as_bytes())
             }
         );
         // ⛔ Et il est RETENU : sans ca l'utilisateur redirait oui a chaque connexion, et finirait
         // par dire oui sans regarder.
-        assert!(appaires.lock().await.autorise(&empreinte(b"cle-publique")));
+        assert!(
+            appaires
+                .lock()
+                .await
+                .autorise(&empreinte(cle_publique.as_bytes()))
+        );
     }
 
     #[tokio::test]
     async fn un_inconnu_refuse_reste_dehors_et_n_est_pas_retenu() {
         let appaires = Arc::new(Mutex::new(Appaires::default()));
         let (adresse, der, mut demandes) = serveur_de_test(Arc::clone(&appaires)).await;
+        let (cle_publique, paire) = paire_de_test();
 
         tokio::spawn(async move {
             let demande = demandes.recv().await.expect("une demande");
             let _ = demande.reponse.send(false);
         });
 
-        let reponse = dialoguer(adresse, der, "iPhone", "cle-publique", VERSION_PROTOCOLE).await;
+        let reponse = dialoguer(
+            adresse,
+            der,
+            "iPhone",
+            &paire,
+            &cle_publique,
+            VERSION_PROTOCOLE,
+        )
+        .await;
         assert_eq!(
             reponse,
             Reponse::Refus {
                 motif: Motif::Refuse
             }
         );
-        assert!(!appaires.lock().await.autorise(&empreinte(b"cle-publique")));
+        assert!(
+            !appaires
+                .lock()
+                .await
+                .autorise(&empreinte(cle_publique.as_bytes()))
+        );
+    }
+
+    #[tokio::test]
+    async fn connaitre_la_cle_publique_ne_suffit_plus_a_entrer() {
+        // ⛔ **C'est le test qui prouve le remplacement du secret porteur, sur le vrai reseau.**
+        // Avant cette etape, presenter la meme cle publique qu'un appareil deja appaire suffisait
+        // a rentrer. Ici un imposteur DECLARE la bonne cle publique mais signe avec une AUTRE
+        // paire : il n'a pas la cle privee correspondante, et doit etre refuse.
+        let (cle_publique, _vraie_paire) = paire_de_test();
+        let mut appaires_init = Appaires::default();
+        appaires_init.ajouter(AppareilAppaire {
+            empreinte: empreinte(cle_publique.as_bytes()),
+            nom: "iPhone".into(),
+            appaire_le: "2026-09-25T20:00:00Z".into(),
+        });
+        let appaires = Arc::new(Mutex::new(appaires_init));
+        let (adresse, der, mut demandes) = serveur_de_test(Arc::clone(&appaires)).await;
+
+        let (_autre_cle_publique, autre_paire) = paire_de_test();
+        let reponse = dialoguer(
+            adresse,
+            der,
+            "iPhone",
+            &autre_paire,
+            &cle_publique,
+            VERSION_PROTOCOLE,
+        )
+        .await;
+        assert_eq!(
+            reponse,
+            Reponse::Refus {
+                motif: Motif::PreuveInvalide
+            }
+        );
+        // ⛔ Et l'utilisateur n'a meme pas ete derange : refuser une preuve invalide ne doit pas
+        // dependre d'un humain qui regarderait un code, sinon un imposteur pourrait tenter sa
+        // chance jusqu'a ce que quelqu'un clique sans regarder.
+        assert!(
+            demandes.try_recv().is_err(),
+            "une preuve invalide ne doit jamais solliciter l'utilisateur"
+        );
+    }
+
+    #[tokio::test]
+    async fn un_appareil_deja_appaire_rentre_avec_sa_vraie_cle_sans_rien_demander() {
+        let (cle_publique, vraie_paire) = paire_de_test();
+        let mut appaires_init = Appaires::default();
+        appaires_init.ajouter(AppareilAppaire {
+            empreinte: empreinte(cle_publique.as_bytes()),
+            nom: "iPhone".into(),
+            appaire_le: "2026-09-25T20:00:00Z".into(),
+        });
+        let appaires = Arc::new(Mutex::new(appaires_init));
+        let (adresse, der, mut demandes) = serveur_de_test(Arc::clone(&appaires)).await;
+
+        let reponse = dialoguer(
+            adresse,
+            der,
+            "iPhone",
+            &vraie_paire,
+            &cle_publique,
+            VERSION_PROTOCOLE,
+        )
+        .await;
+        assert_eq!(
+            reponse,
+            Reponse::Bienvenue {
+                empreinte: empreinte(cle_publique.as_bytes())
+            }
+        );
+        assert!(
+            demandes.try_recv().is_err(),
+            "un appareil deja connu ne doit rien redemander a l'utilisateur"
+        );
     }
 
     #[tokio::test]
@@ -615,23 +827,38 @@ mod tests {
         // demande ». Il doit refuser, jamais autoriser par defaut.
         let (adresse, der, demandes) = serveur_de_test(Arc::clone(&appaires)).await;
         drop(demandes);
+        let (cle_publique, paire) = paire_de_test();
 
-        let reponse = dialoguer(adresse, der, "iPhone", "cle-publique", VERSION_PROTOCOLE).await;
+        let reponse = dialoguer(
+            adresse,
+            der,
+            "iPhone",
+            &paire,
+            &cle_publique,
+            VERSION_PROTOCOLE,
+        )
+        .await;
         assert_eq!(
             reponse,
             Reponse::Refus {
                 motif: Motif::SansReponse
             }
         );
-        assert!(!appaires.lock().await.autorise(&empreinte(b"cle-publique")));
+        assert!(
+            !appaires
+                .lock()
+                .await
+                .autorise(&empreinte(cle_publique.as_bytes()))
+        );
     }
 
     #[tokio::test]
     async fn une_mauvaise_version_ne_derange_meme_pas_l_utilisateur() {
         let appaires = Arc::new(Mutex::new(Appaires::default()));
         let (adresse, der, mut demandes) = serveur_de_test(Arc::clone(&appaires)).await;
+        let (cle_publique, paire) = paire_de_test();
 
-        let reponse = dialoguer(adresse, der, "iPhone", "cle-publique", "0").await;
+        let reponse = dialoguer(adresse, der, "iPhone", &paire, &cle_publique, "0").await;
         assert_eq!(
             reponse,
             Reponse::Refus {

@@ -69,6 +69,14 @@ futures-util = { version = "0.3", default-features = false, features = ["sink"] 
 mdns-sd = "0.21"
 # Defi d'appairage. ⛔ Doit venir d'un generateur cryptographique : un defi previsible se rejoue.
 rand = "0.9"
+# Verification de signature Ed25519 (identite du telephone). ⚠️ Declaree EXPLICITEMENT bien que
+# `rustls` en tire deja une version par sa feature "ring" : meme motif que `tokio` ci-dessus, ne
+# pas laisser une mise a jour de rustls decider silencieusement de NOTRE version de `ring`.
+ring = "0.17"
+# Encodage des cles et signatures echangees en JSON (elles sont binaires). ⚠️ Egalement deja
+# tiree par transitivite (tauri, rustls-pemfile) sous plusieurs versions : la declarer nous-memes
+# fixe celle que NOTRE code appelle, independamment de ce que d'autres dependances choisissent.
+base64 = "0.22"
 
 # ⚠️ Uniquement sur Windows : l'injection au curseur y passe par `SendInput`. Ailleurs elle a une
 # autre implementation (voir `src/platform/mod.rs`), et lier cette caisse partout ferait echouer

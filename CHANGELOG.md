@@ -9,6 +9,28 @@ et ce projet adhere au [Semantic Versioning](https://semver.org/lang/fr/).
 
 ### Ajouté
 
+- **Le protocole d'appairage passe en version 2 : le téléphone prouve posséder sa clé, il ne se
+  contente plus de la montrer.** Depuis la version 1, un appareil déjà autorisé rentrait en
+  présentant à nouveau la même chaîne — un secret porteur. L'hôte envoie désormais un défi neuf
+  après `Bonjour`, à TOUT le monde, connu ou non, et exige une signature Ed25519 avant de décider
+  quoi que ce soit. Une signature observée une fois (dans un journal mal gardé, par exemple) ne
+  redonne aucun accès : le prochain défi est différent, et ne signait rien d'avance.
+
+  ⛔ **`verifier_entree` et `verifier_preuve` sont deux fonctions PURES de plus**, dans le même
+  esprit que `decider` : la version et les bornes se refusent avant même d'envoyer un défi, la
+  preuve se vérifie avant même de savoir si l'appareil est déjà connu. `decider` lui-même n'a pas
+  changé de comportement, il est seulement appelé plus tard dans la connexion.
+
+  ⛔ **Corrigé au passage : le téléphone ne recevait jamais son propre code.** `AutorisationDemandee`
+  n'était renvoyée qu'à la toute fin de la connexion, une fois l'utilisateur déjà répondu sur
+  l'ordinateur — ce qui rendait la consigne « comparez les deux nombres » vide de sens, puisque
+  rien n'apparaissait côté téléphone pour comparer. Elle est maintenant envoyée dès qu'elle est
+  décidée, et la connexion reste ouverte en attendant la réponse humaine.
+
+  ⚠️ **Bump obligatoire de `VERSION_PROTOCOLE` (`"1"` → `"2"`)** : un téléphone de l'ancienne
+  version n'enverrait jamais de preuve, et serait sinon bloqué par un délai d'attente illisible
+  plutôt que par un refus clair et immédiat.
+
 - **L'écran d'appairage et la découverte sur le réseau local.** Un téléphone peut désormais
   trouver cet ordinateur, et l'utilisateur peut l'autoriser — les deux moitiés qui manquaient.
 

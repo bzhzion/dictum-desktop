@@ -201,6 +201,33 @@ pub fn empreinte_certificat(certificat_pem: &str) -> Result<String, String> {
     Ok(empreinte(der.as_ref()))
 }
 
+/// Verifie qu'une signature Ed25519 correspond bien au message, sous la cle publique declaree.
+///
+/// ⛔ **`cle_publique_b64` et `signature_b64` sont du base64 fourni par un inconnu non encore
+/// authentifie.** Un decodage impossible et une signature qui ne correspond pas doivent produire
+/// EXACTEMENT le meme `false` : distinguer les deux dans le message d'erreur renseignerait un
+/// attaquant sur ce qui a echoue (« votre cle est mal formee » contre « votre cle ne correspond
+/// pas »), sans lui apporter le moindre acces en retour puisque les deux refusent.
+///
+/// ⚠️ **C'est la seule chose qui remplace desormais le secret porteur.** Avant cette fonction,
+/// l'ordinateur retenait l'empreinte d'une chaine que le telephone montrait, et la remontrer
+/// suffisait a rentrer. Ici, il faut prouver la possession de la cle PRIVEE correspondante en la
+/// faisant signer un defi qu'elle n'a jamais vu a l'avance — voir `appairage::verifier_preuve`,
+/// qui appelle cette fonction.
+pub fn verifier_signature(cle_publique_b64: &str, message: &[u8], signature_b64: &str) -> bool {
+    use base64::Engine;
+    let decodeur = base64::engine::general_purpose::STANDARD;
+    let Ok(cle) = decodeur.decode(cle_publique_b64) else {
+        return false;
+    };
+    let Ok(signature) = decodeur.decode(signature_b64) else {
+        return false;
+    };
+    ring::signature::UnparsedPublicKey::new(&ring::signature::ED25519, &cle)
+        .verify(message, &signature)
+        .is_ok()
+}
+
 /// Un appareil autorise, tel qu'il est retenu sur l'ordinateur.
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct AppareilAppaire {
@@ -418,5 +445,65 @@ mod tests {
         // Un imposteur qui se declare du meme nom presente une autre cle : il reste dehors.
         // C'est precisement le defaut de justmakeQ qu'on refuse de reprendre.
         assert!(!liste.autorise(&empreinte(b"imposteur")));
+    }
+
+    /// Genere une paire Ed25519 de test et rend (cle publique b64, fonction de signature).
+    ///
+    /// ⚠️ Cote telephone la cle vit dans le trousseau iOS ; ici on n'a besoin que de prouver que
+    /// LA MEME primitive (Ed25519 via `ring`) verifie correctement une signature qu'elle a
+    /// elle-meme produite — le test ne rejoue pas CryptoKit, il n'existe pas sur ce poste.
+    fn paire_de_test() -> (String, ring::signature::Ed25519KeyPair) {
+        use base64::Engine;
+        use ring::signature::KeyPair;
+        let rng = ring::rand::SystemRandom::new();
+        let pkcs8 = ring::signature::Ed25519KeyPair::generate_pkcs8(&rng).expect("generation");
+        let paire = ring::signature::Ed25519KeyPair::from_pkcs8(pkcs8.as_ref()).expect("parsing");
+        let publique = base64::engine::general_purpose::STANDARD.encode(paire.public_key());
+        (publique, paire)
+    }
+
+    #[test]
+    fn une_signature_valide_est_acceptee() {
+        use base64::Engine;
+        let (publique, paire) = paire_de_test();
+        let signature = base64::engine::general_purpose::STANDARD.encode(paire.sign(b"defi"));
+        assert!(verifier_signature(&publique, b"defi", &signature));
+    }
+
+    #[test]
+    fn une_signature_sur_un_autre_message_est_refusee() {
+        use base64::Engine;
+        let (publique, paire) = paire_de_test();
+        let signature = base64::engine::general_purpose::STANDARD.encode(paire.sign(b"defi"));
+        // ⛔ Le point du test : la meme signature, valide pour "defi", ne doit PAS passer pour
+        // "autre-defi". Sans ca, capturer une signature une fois suffirait a la rejouer ailleurs.
+        assert!(!verifier_signature(&publique, b"autre-defi", &signature));
+    }
+
+    #[test]
+    fn une_signature_produite_par_une_autre_cle_est_refusee() {
+        use base64::Engine;
+        let (publique_a, _paire_a) = paire_de_test();
+        let (_publique_b, paire_b) = paire_de_test();
+        let signature_de_b =
+            base64::engine::general_purpose::STANDARD.encode(paire_b.sign(b"defi"));
+        // ⛔ La cle publique DECLAREE est celle de A, mais la signature vient de B : refuse. C'est
+        // exactement l'attaque qu'un secret porteur ne peut pas empecher.
+        assert!(!verifier_signature(&publique_a, b"defi", &signature_de_b));
+    }
+
+    #[test]
+    fn un_base64_illisible_ne_fait_pas_paniquer_et_refuse() {
+        assert!(!verifier_signature(
+            "pas du base64 valide !!",
+            b"defi",
+            "non plus"
+        ));
+        let (publique, _) = paire_de_test();
+        assert!(!verifier_signature(
+            &publique,
+            b"defi",
+            "signature illisible"
+        ));
     }
 }
